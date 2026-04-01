@@ -46,7 +46,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     reprise = st.radio(
-        "Souhaitez-vous reprendre des terres converties ?",
+        "Souhaitez-vous reprendre des terres déjà converties en agriculture biologique ?",
         options=["Oui", "Non"],
         horizontal=True,
         key="q1"
