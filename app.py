@@ -1,100 +1,68 @@
 import streamlit as st
 import pandas as pd
-import geopandas as gpd
-import plotly.express as px
+import folium
+from streamlit_folium import st_folium
+import requests
 
-st.set_page_config(page_title="Carte Surface AB", layout="wide")
-st.title("🌾 Évolution de la Surface Agricole Biologique (Hauts-de-France)")
+# Configuration de la page Streamlit
+st.set_page_config(page_title="Carte Terres AB par Canton", layout="wide")
 
+st.title("Répartition des Terres en Agriculture Biologique par Canton")
+
+# 1. Chargement des données CSV
+# On force le type 'str' pour la colonne canton pour garder les codes intacts (ex: 0101)
 @st.cache_data
 def load_data():
-    # --- 1. CHARGEMENT DES DONNÉES AGRICOLES (VOTRE CSV) ---
-    df_csv = pd.read_csv('test_carte.csv', sep=';')
-    df_csv['codeinseecommune'] = df_csv['codeinseecommune'].astype(str).str.zfill(5)
-    
-    # --- 2. CHARGEMENT DU FOND DE CARTE DES COMMUNES ---
-    url_geojson = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/communes-version-simplifiee.geojson"
-    gdf_com = gpd.read_file(url_geojson)
-    # Filtrage Hauts-de-France et on réinitialise l'index immédiatement
-    gdf_com = gdf_com[gdf_com['code'].str[:2].isin(['60', '80', '02', '59', '62'])].copy()
-    gdf_com = gdf_com.reset_index(drop=True)
-    gdf_com['geometry'] = gdf_com.geometry.simplify(tolerance=0.002)
+    df = pd.read_csv('cartetest.csv', dtype={'canton': str})
+    return df
 
-    # --- 3. CHARGEMENT DES CORRESPONDANCES CANTONS (INSEE) ---
-    url_insee = "https://www.insee.fr/fr/statistiques/fichier/7766585/v_commune_2024.csv"
-    try:
-        df_insee = pd.read_csv(url_insee)
-        # Création d'un identifiant de canton unique (DEP + CAN)
-        df_insee['canton_id'] = "Canton " + df_insee['DEP'].astype(str) + "-" + df_insee['CAN'].astype(str)
-        df_map = df_insee[['COM', 'canton_id']].copy()
-        df_map.columns = ['codeinseecommune', 'canton']
-        df_map['codeinseecommune'] = df_map['codeinseecommune'].astype(str).str.zfill(5)
-    except:
-        df_map = pd.DataFrame({'codeinseecommune': gdf_com['code'].unique()})
-        df_map['canton'] = "Secteur " + df_map['codeinseecommune'].str[:3]
+df = load_data()
 
-    # --- 4. CRÉATION DU FOND DE CARTE DES CANTONS ---
-    gdf_com_mapped = gdf_com.merge(df_map, left_on='code', right_on='codeinseecommune', how='inner')
-    gdf_cantons = gdf_com_mapped.dissolve(by='canton').reset_index()
+# 2. Lien vers le GeoJSON des cantons (Source: France-GeoJSON / Grégoire David)
+# Ce fichier contient la propriété 'code' pour chaque canton
+geojson_url = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/cantons-version-simplifiee.geojson"
 
-    return df_csv, gdf_com, gdf_cantons, df_map
+# 3. Création de la carte
+m = folium.Map(location=[46.5, 2.5], zoom_start=6, tiles='CartoDB positron')
 
-with st.spinner("Initialisation des données..."):
-    df_agri, gdf_communes, gdf_cantons, df_mapping = load_data()
+# 4. Ajout de la couche Choropleth (le dégradé)
+choropleth = folium.Choropleth(
+    geo_data=geojson_url,
+    data=df,
+    columns=['canton', 'terres_ab'],
+    key_on='feature.properties.code',  # On se base sur le CODE du canton
+    fill_color='YlGn',
+    fill_opacity=0.7,
+    line_opacity=0.2,
+    legend_name='Terres en Agriculture Biologique (ha)',
+    nan_fill_color='white',
+    highlight=True
+).add_to(m)
 
-# --- INTERFACE ---
-st.sidebar.header("Paramètres")
-annees_dispos = sorted(df_agri['annee'].dropna().unique().astype(int))
-annee_choisie = st.sidebar.selectbox("Sélectionnez l'année :", annees_dispos)
-echelle = st.sidebar.radio("Échelle :", ["Communes", "Cantons"])
+# 5. Ajout d'une info-bulle interactive (Tooltip)
+# On récupère le geojson pour pouvoir lier les données au survol
+geojson_data = requests.get(geojson_url).json()
 
-# --- CALCULS ET JOINTURES ---
-df_filtre = df_agri[df_agri['annee'] == annee_choisie].copy()
+# On crée un dictionnaire pour mapper Code -> Valeur terres_ab afin de l'afficher au survol
+ab_dict = df.set_index('canton')['terres_ab'].to_dict()
 
-if echelle == "Communes":
-    # On repart du fond de carte communes propre
-    gdf_final = gdf_communes.merge(df_filtre, left_on='code', right_on='codeinseecommune', how='left')
-    hover_name_col = "nom"
-    hover_data_dict = {"code": True, "surfab": True}
-else:
-    # On repart du fond de carte cantons propre
-    df_agri_cantons = df_filtre.merge(df_mapping, on='codeinseecommune', how='left')
-    df_grouped = df_agri_cantons.groupby('canton', as_index=False)['surfab'].sum()
-    gdf_final = gdf_cantons.merge(df_grouped, on='canton', how='left')
-    hover_name_col = "canton"
-    hover_data_dict = {"canton": False, "surfab": True}
+for feature in geojson_data['features']:
+    code = feature['properties']['code']
+    feature['properties']['valeur_ab'] = ab_dict.get(code, "Pas de donnée")
 
-# REMPLISSAGE DES VIDES ET RÉINITIALISATION CRUCIALE DE L'INDEX
-gdf_final['surfab'] = gdf_final['surfab'].fillna(0)
-gdf_final = gdf_final.reset_index(drop=True)
+folium.GeoJson(
+    geojson_data,
+    style_function=lambda x: {'fillColor': 'transparent', 'color': 'transparent'},
+    tooltip=folium.GeoJsonTooltip(
+        fields=['code', 'nom', 'valeur_ab'],
+        aliases=['Code Canton:', 'Nom:', 'Terres AB (ha):'],
+        localize=True
+    )
+).add_to(m)
 
-# --- CARTE ---
-# On utilise gdf_final.__geo_interface__ pour être certain que Plotly voit les géométries
-# Ajouter une colonne id explicite et synchronisée
-gdf_final = gdf_final.reset_index(drop=True)
-gdf_final['_id'] = gdf_final.index.astype(str)
+# 6. Affichage dans Streamlit
+st_folium(m, width='100%', height=600)
 
-# Injecter cet id dans le geojson
-geojson_data = gdf_final.__geo_interface__
-for i, feature in enumerate(geojson_data['features']):
-    feature['id'] = str(i)
-
-fig = px.choropleth_mapbox(
-    gdf_final,
-    geojson=geojson_data,
-    locations='_id',          # ← colonne string, pas l'index
-    color='surfab',
-    color_continuous_scale=["white", "#99d98c", "#1a7431"],
-    hover_name=hover_name_col,
-    hover_data=hover_data_dict,
-    mapbox_style="carto-positron",
-    zoom=7,
-    center={"lat": 49.9, "lon": 2.8},
-    opacity=0.7
-)
-
-# Amélioration du tracé : on ajoute une bordure grise très fine pour voir les communes à 0
-fig.update_traces(marker_line_width=0.1, marker_line_color="gray")
-
-fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-st.plotly_chart(fig, use_container_width=True)
+# Affichage du tableau de données en dessous (optionnel)
+if st.checkbox("Afficher le tableau des données"):
+    st.write(df)
