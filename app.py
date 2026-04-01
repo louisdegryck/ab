@@ -11,10 +11,10 @@ st.title("🚜 Outil d'aide à l'installation pour les exploitation en agricultu
 def load_data():
     # 1. Chargement du CSV Agricole
     df = pd.read_csv('cartetest.csv', sep=';', encoding='utf-8-sig', dtype=str)
-    df = df.iloc[:, :5] 
-    df.columns = ['canton', 'surfab', 'terres_ab', 'nb_exploit', 'score_exploit']
+    df = df.iloc[:, :6] 
+    df.columns = ['canton', 'surfab', 'terres_ab', 'nb_exploit', 'score_exploit','prct_bio']
 
-    for col in ['surfab', 'terres_ab', 'nb_exploit', 'score_exploit']:
+    for col in ['surfab', 'terres_ab', 'nb_exploit', 'score_exploit','prct_bio]:
         df[col] = df[col].astype(str).str.replace(',', '.')
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
@@ -84,7 +84,7 @@ gdf_final['score_ind'] = (raw_ind - i_min) / (i_max - i_min) if i_max > i_min el
 veut_terres = (reprise == "Oui")
 veut_entraide = (entraide == "Oui")
 
-base = gdf_final['terres_ab'] if veut_terres else (1 - gdf_final['terres_ab'])
+base = gdf_final['prct_bio'] if veut_terres else (1 - gdf_final['prct_bio'])
 
 if veut_entraide:
     base = base * (1 + gdf_final['score_exploit']) / 2
