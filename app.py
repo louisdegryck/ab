@@ -21,17 +21,14 @@ def load_data():
     df['cant'] = df['canton_raw'].str[-2:].str.zfill(3)
     df['canton'] = (df['dept'] + df['cant']).str.zfill(5)
 
-    # CHARGEMENT DU 2e CSV
-    # ⚠️ Vérifiez si le séparateur est '\t' (tabulation), ';' ou ',' 
-    # J'ai mis '\t' comme dans votre code, mais si ça ne marche toujours pas, essayez sep=';'
-    df_ind = pd.read_csv('industries_cantons.csv', sep='\t', encoding='utf-8-sig', dtype=str)
+   # CHARGEMENT DU 2e CSV avec le séparateur point-virgule
+    df_ind = pd.read_csv('industries_cantons.csv', sep=';', encoding='utf-8-sig', dtype=str)
     
-    # SECURITE : On s'assure de ne garder que les 6 premières colonnes
-    df_ind = df_ind.iloc[:, :6] 
+    # On garde les 6 premières colonnes au cas où il y aurait des colonnes vides à la fin
+    df_ind = df_ind.iloc[:, :6]
     
-    # Maintenant l'assignation des 6 noms fonctionnera sans erreur
+    # Renommage
     df_ind.columns = ['canton_ind', 'nb_silos', 'nb_transfo_gc', 'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande']
-    
 
     df_ind['canton_raw'] = df_ind['canton_ind'].astype(str).str.split('.').str[0].str.strip()
     df_ind['dept'] = df_ind['canton_raw'].str[:-2]
