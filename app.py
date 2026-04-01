@@ -70,10 +70,19 @@ gdf_final = gdf_final.reset_index(drop=True)
 
 # --- CARTE ---
 # On utilise gdf_final.__geo_interface__ pour être certain que Plotly voit les géométries
+# Ajouter une colonne id explicite et synchronisée
+gdf_final = gdf_final.reset_index(drop=True)
+gdf_final['_id'] = gdf_final.index.astype(str)
+
+# Injecter cet id dans le geojson
+geojson_data = gdf_final.__geo_interface__
+for i, feature in enumerate(geojson_data['features']):
+    feature['id'] = str(i)
+
 fig = px.choropleth_mapbox(
     gdf_final,
-    geojson=gdf_final.__geo_interface__, 
-    locations=gdf_final.index,
+    geojson=geojson_data,
+    locations='_id',          # ← colonne string, pas l'index
     color='surfab',
     color_continuous_scale=["white", "#99d98c", "#1a7431"],
     hover_name=hover_name_col,
