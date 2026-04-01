@@ -106,7 +106,9 @@ fig = px.choropleth_mapbox(
         "code": True,
         "terres_ab": ":.2f",
         "score_exploit": ":.2f",
-        "score": ":.2f"
+        "score": ":.2f",
+        "surfab": ":.2f",
+        "nb_exploit": ":.0f"
     },
     mapbox_style="carto-positron",
     zoom=7,
