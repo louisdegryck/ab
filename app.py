@@ -96,7 +96,7 @@ st.markdown(f"### 🗺️ Cantons favorables — {type_exploit}")
 # Échelle de couleur personnalisée
 custom_scale = [
     [0.0, "white"],
-    [0.05, "yellow"],
+    [0.5, "yellow"],
     [1.0, "green"]
 ]
 
