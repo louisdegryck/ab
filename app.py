@@ -14,12 +14,12 @@ def load_data():
     
     # 2. ON FORCE LES NOMS DE COLONNES PAR POSITION (pour éviter KeyError)
     # Peu importe comment elles s'appellent dans ton fichier :
-    # La 1ère sera 'canton', la 2ème 'surfab', la 3ème 'terres_ab'
+    # La 1ère sera 'canton', la 2ème 'surfab', la 3ème 'terre_ab'
     df = df.iloc[:, [0, 1, 2]] 
-    df.columns = ['canton', 'surfab', 'terres_ab']
+    df.columns = ['canton', 'surfab', 'terre_ab']
     
     # 3. NETTOYAGE DES CHIFFRES
-    for col in ['surfab', 'terres_ab']:
+    for col in ['surfab', 'terre_ab']:
         df[col] = df[col].astype(str).str.replace(',', '.')
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
     
@@ -43,7 +43,7 @@ df_csv, gdf_geo = load_data()
 gdf_final = gdf_geo.merge(df_csv, left_on='code', right_on='canton', how='left')
 
 # On remplit les vides par 0 pour que la carte se colore
-gdf_final['terres_ab'] = gdf_final['terres_ab'].fillna(0)
+gdf_final['terre_ab'] = gdf_final['terre_ab'].fillna(0)
 gdf_final['surfab'] = gdf_final['surfab'].fillna(0)
 
 # 7. AFFICHAGE DE LA CARTE
@@ -51,12 +51,12 @@ fig = px.choropleth_mapbox(
     gdf_final,
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
-    color='terres_ab',
+    color='terre_ab',
     color_continuous_scale="YlGn",
     hover_name="nom", # Nom du canton venant du GeoJSON (ex: Roye)
     hover_data={
         "code": True, 
-        "terres_ab": ":.2f", 
+        "terre_ab": ":.2f", 
         "surfab": ":.2f"
     },
     mapbox_style="carto-positron",
