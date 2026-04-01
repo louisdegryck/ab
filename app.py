@@ -27,10 +27,10 @@ def load_data():
 
     # Reconstruction du code INSEE canton sur 5 caractères
     # Ex: '5919' -> '59' (département) + '019' (canton formaté sur 3 chiffres) -> '59019'
-    df['canton_raw'] = df['Étiquettes de lignes'].astype(str).str.strip()
-    df['dept'] = df['canton_raw'].str[:2]
-    df['cant'] = df['canton_raw'].str[2:].str.zfill(3)
-    df['canton'] = df['dept'] + df['cant']
+    df['canton_raw'] = df['Étiquettes de lignes'].astype(str).str.split('.').str[0].str.strip()
+    df['dept'] = df['canton_raw'].str[:-2] # Récupère tout sauf les 2 derniers chiffres
+    df['cant'] = df['canton_raw'].str[-2:].str.zfill(3) # Transforme les 2 derniers chiffres en 3 chiffres (ex: "14" -> "014")
+    df['canton'] = (df['dept'] + df['cant']).str.zfill(5) # Rajoute le zéro devant si besoin (ex: "2014" -> "02014")
 
     # 2. Chargement Géo
     url_geojson = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/cantons-version-simplifiee.geojson"
