@@ -95,20 +95,6 @@ gdf_final['score'] = base * (1 + gdf_final['score_ind']) / 2
 st.markdown(f"### 🗺️ Cantons favorables")
 
 # --- CARTE ---
-st.markdown(f"### 🗺️ Cantons selon la part de bio")
-
-# --- CARTE ---
-st.markdown("### 🗺️ Cantons selon la part de bio")
-
-# Création d'une palette séquentielle custom
-# 0 → couleur claire, 0.1 → couleur jaune, 1 → couleur verte
-custom_scale = [
-    [0.0, "lightgray"],  # très faible
-    [0.1, "yellow"],     # pivot à 10%
-    [1.0, "green"]       # max
-]
-
-# --- CARTE ---
 st.markdown("### 🗺️ Cantons selon la part de bio")
 
 # Palette séquentielle custom : blanc → jaune → vert
