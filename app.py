@@ -92,9 +92,6 @@ if veut_entraide:
 gdf_final['score'] = base * (1 + gdf_final['score_ind']) / 2
 
 # --- CARTE ---
-st.markdown(f"### 🗺️ Cantons favorables")
-
-# --- CARTE ---
 st.markdown("### 🗺️ Cantons selon la part de bio")
 
 # Palette séquentielle custom : blanc → jaune → vert
@@ -124,7 +121,6 @@ fig = px.choropleth_mapbox(
     center={"lat": 49.9, "lon": 2.8},
     opacity=0.7
 )
-
 
 
 fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=700)
