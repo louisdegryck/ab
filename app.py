@@ -11,7 +11,7 @@ st.set_page_config(layout="wide")
 def load_data():
     try:
         # Lecture du CSV (on force canton en texte)
-        df = pd.read_csv('cartetest.csv', sep=None, engine='python', dtype={'cantons': str})
+        df = pd.read_csv('cartetest.csv', sep=None, engine='python', dtype={'canton': str})
         
         # On ne garde que les colonnes nécessaires pour éviter les erreurs
         # On s'assure que les noms sont exacts
@@ -22,7 +22,7 @@ def load_data():
         df['terres_ab'] = pd.to_numeric(df['terres_ab'], errors='coerce')
         
         # On supprime les lignes vides
-        df = df.dropna(subset=['cantons', 'terres_ab'])
+        df = df.dropna(subset=['canton', 'terres_ab'])
         
         return df
     except Exception as e:
@@ -64,8 +64,8 @@ if df is not None:
     
     with col1:
         st.write("### Tes données (CSV)")
-        st.write("Voici les codes 'cantons' que tu fournis :")
-        st.dataframe(df[['cantons', 'terres_ab']].head(10))
+        st.write("Voici les codes 'canton' que tu fournis :")
+        st.dataframe(df[['canton', 'terres_ab']].head(10))
 
     with col2:
         st.write("### Codes attendus (GeoJSON)")
