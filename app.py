@@ -5,7 +5,7 @@ import plotly.express as px
 
 # Configuration de la page
 st.set_page_config(layout="wide", page_title="Carte Bio Hauts-de-France")
-st.title("🚜 Carte Surface Agricole Biologique - Hauts-de-France")
+st.title("🚜 Outil d'aide à l'installation pour les exploitation en agriculture biologique - Hauts-de-France")
 
 @st.cache_data
 def load_data():
