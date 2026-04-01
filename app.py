@@ -102,9 +102,9 @@ fig = px.choropleth_mapbox(
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
     color='prct_bio',
-    color_continuous_scale=["red", "yellow", "green"],  # divergente
+    color_continuous_scale=["red", "yellow", "green"],  # palette divergente
     range_color=[0, 1],
-    color_continuous_midpoint=0.01,  # pivot à 10%
+    color_continuous_midpoint=0.1,  # pivot à 10%
     hover_name="nom",
     hover_data={
         "code": True,
@@ -118,6 +118,7 @@ fig = px.choropleth_mapbox(
     center={"lat": 49.9, "lon": 2.8},
     opacity=0.7
 )
+
 
 fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=700)
 st.plotly_chart(fig, use_container_width=True)
