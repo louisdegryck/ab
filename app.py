@@ -76,22 +76,27 @@ with col3:
     type_exploit = st.radio("Type d'activité ?", ["Élevage", "Grande culture"], horizontal=True, key="q3")
 
 # --- CALCULS ---
+
+# Score de base selon le type d'activité
 if type_exploit == "Élevage":
     gdf_final['score_ind'] = gdf_final['prct_elevage']
-    couleur = 'prct_elevage'
+    couleur_base = gdf_final['prct_elevage'].copy()
 else:
     gdf_final['score_ind'] = gdf_final['prct_gdculture']
-    couleur = 'prct_gdculture'
+    couleur_base = gdf_final['prct_gdculture'].copy()
 
-veut_terres   = (reprise   == "Oui")
-veut_entraide = (entraide  == "Oui")
+# Amplification "Terres converties" : booste les zones où prct_bio > 0.05
+if reprise == "Oui":
+    masque_terres = gdf_final['prct_bio'] > 0.05
+    couleur_base = couleur_base.where(~masque_terres, couleur_base * 1.5)
 
-base = gdf_final['prct_bio'] if veut_terres else (1 - gdf_final['prct_bio'])
+# Amplification "Entraide" : booste les zones où score_exploit > 0.5
+if entraide == "Oui":
+    masque_entraide = gdf_final['score_exploit'] > 0.5
+    couleur_base = couleur_base.where(~masque_entraide, couleur_base * 1.5)
 
-if veut_entraide:
-    base = base * (1 + gdf_final['score_exploit']) / 2
-
-gdf_final['score'] = base * (1 + gdf_final['score_ind']) / 2
+# On plafonne à 1 pour rester dans l'échelle [0, 1]
+gdf_final['score_final'] = couleur_base.clip(0, 1)
 
 # --- CARTE ---
 label_activite = "Élevage" if type_exploit == "Élevage" else "Grande culture"
@@ -107,7 +112,7 @@ fig = px.choropleth_mapbox(
     gdf_final,
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
-    color=couleur,
+    color='score_final',
     color_continuous_scale=custom_scale,
     range_color=[0, 1],
     hover_name="nom",
@@ -115,8 +120,9 @@ fig = px.choropleth_mapbox(
         "code": True,
         "prct_bio": ":.2f",
         "terres_ab": ":.2f",
+        "score_exploit": ":.2f",
         "score_ind": ":.2f",
-        "score": ":.2f",
+        "score_final": ":.2f",
         "surfab": ":.2f",
         "nb_exploit": ":.0f"
     },
@@ -135,4 +141,4 @@ st.plotly_chart(fig, use_container_width=True, key="carte_principale")
 
 # --- DEBUG ---
 with st.expander("Voir les données brutes"):
-    st.write(gdf_final[['nom', 'code', 'score', 'score_ind', 'prct_elevage', 'prct_gdculture']].head(10))
+    st.write(gdf_final[['nom', 'code', 'score_final', 'score_ind', 'prct_bio', 'score_exploit', 'prct_elevage', 'prct_gdculture']].head(10))
