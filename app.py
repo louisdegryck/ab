@@ -97,7 +97,7 @@ st.markdown("### 🗺️ Cantons selon la part de bio")
 # Palette séquentielle custom : blanc → jaune → vert
 custom_scale = [
     [0.0, "white"],   # 0% → blanc
-    [0.1, "yellow"],  # 10% → jaune
+    [0.05, "yellow"],  # 10% → jaune
     [1.0, "green"]    # 100% → vert
 ]
 
