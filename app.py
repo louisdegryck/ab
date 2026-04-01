@@ -36,30 +36,21 @@ gdf_final = gdf_geo.merge(df_csv, left_on='code', right_on='canton', how='left')
 gdf_final['terre_ab'] = gdf_final['terre_ab'].fillna(0)
 gdf_final['surfab'] = gdf_final['surfab'].fillna(0)
 
-# QUESTION
-st.subheader("🌱 Préférence d'affichage")
-reprise = st.radio(
-    "Souhaitez-vous reprendre des terres converties ?",
-    options=["Oui", "Non"],
-    horizontal=True
-)
+# ─────────────────────────────────────────────
+# CARTE 1 : carte originale (toujours visible)
+# ─────────────────────────────────────────────
+st.subheader("🗺️ Carte des surfaces agricoles biologiques")
 
-# SENS DU GRADIENT selon la réponse
-# Oui → vert foncé = valeur haute (zones très converties en haut)
-# Non → vert foncé = valeur basse (zones peu converties mises en avant)
-color_scale = "YlGn" if reprise == "Oui" else "YlGn_r"
-
-# AFFICHAGE DE LA CARTE
-fig = px.choropleth_mapbox(
+fig1 = px.choropleth_mapbox(
     gdf_final,
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
     color='terre_ab',
-    color_continuous_scale=color_scale,
+    color_continuous_scale="YlGn",
     hover_name="nom",
     hover_data={
-        "code": True, 
-        "terre_ab": ":.2f", 
+        "code": True,
+        "terre_ab": ":.2f",
         "surfab": ":.2f"
     },
     mapbox_style="carto-positron",
@@ -67,10 +58,45 @@ fig = px.choropleth_mapbox(
     center={"lat": 49.9, "lon": 2.8},
     opacity=0.8
 )
-fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=800)
-st.plotly_chart(fig, use_container_width=True)
+fig1.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=800)
+st.plotly_chart(fig1, use_container_width=True)
 
+# ─────────────────────────────────────────────
+# CARTE 2 : carte avec question reprise terres
+# ─────────────────────────────────────────────
+st.subheader("🌱 Souhaitez-vous reprendre des terres converties ?")
+
+reprise = st.radio(
+    "",
+    options=["Oui", "Non"],
+    horizontal=True
+)
+
+color_scale = "YlGn" if reprise == "Oui" else "YlGn_r"
+
+fig2 = px.choropleth_mapbox(
+    gdf_final,
+    geojson=gdf_final.__geo_interface__,
+    locations=gdf_final.index,
+    color='terre_ab',
+    color_continuous_scale=color_scale,
+    hover_name="nom",
+    hover_data={
+        "code": True,
+        "terre_ab": ":.2f",
+        "surfab": ":.2f"
+    },
+    mapbox_style="carto-positron",
+    zoom=7.5,
+    center={"lat": 49.9, "lon": 2.8},
+    opacity=0.8
+)
+fig2.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=800)
+st.plotly_chart(fig2, use_container_width=True)
+
+# ─────────────────────────────────────────────
 # TABLEAU DE VÉRIFICATION
+# ─────────────────────────────────────────────
 st.subheader("Données détectées")
 c1, c2 = st.columns(2)
 with c1:
