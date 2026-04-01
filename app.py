@@ -97,7 +97,7 @@ st.markdown("### 🗺️ Cantons selon la part de bio")
 # Palette séquentielle custom : blanc → jaune → vert
 custom_scale = [
     [0.0, "white"],   # 0% → blanc
-    [0.1, "yellow"],  # 10% → jaune (repère visuel)
+    [0.1, "yellow"],  # 10% → jaune
     [1.0, "green"]    # 100% → vert
 ]
 
@@ -117,9 +117,13 @@ fig = px.choropleth_mapbox(
         "nb_exploit": ":.0f"
     },
     mapbox_style="carto-positron",
-    zoom=7,
-    center={"lat": 49.9, "lon": 2.8},
     opacity=0.7
+)
+
+# Forcer le zoom et le centre
+fig.update_layout(
+    mapbox_zoom=7,
+    mapbox_center={"lat": 49.9, "lon": 2.8}
 )
 
 
