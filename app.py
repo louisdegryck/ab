@@ -3,7 +3,6 @@ import pandas as pd
 import geopandas as gpd
 import plotly.express as px
 
-# Configuration de la page
 st.set_page_config(layout="wide", page_title="Carte Bio Hauts-de-France")
 st.title("🚜 Outil d'aide à l'installation pour les exploitation en agriculture biologique - Hauts-de-France")
 
@@ -12,9 +11,9 @@ def load_data():
     # 1. Chargement du CSV Agricole
     df = pd.read_csv('cartetest.csv', sep=';', encoding='utf-8-sig', dtype=str)
     df = df.iloc[:, :6] 
-    df.columns = ['canton', 'surfab', 'terres_ab', 'nb_exploit', 'score_exploit','prct_bio']
+    df.columns = ['canton', 'surfab', 'terres_ab', 'nb_exploit', 'score_exploit', 'prct_bio']
 
-    for col in ['surfab', 'terres_ab', 'nb_exploit', 'score_exploit','prct_bio']:
+    for col in ['surfab', 'terres_ab', 'nb_exploit', 'score_exploit', 'prct_bio']:
         df[col] = df[col].astype(str).str.replace(',', '.')
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
@@ -23,12 +22,19 @@ def load_data():
     df['cant'] = df['canton_raw'].str[-2:].str.zfill(3)
     df['canton'] = (df['dept'] + df['cant']).str.zfill(5)
 
-    # 2. Chargement du CSV Industries
+    # 2. Chargement du CSV Industries (nouveau format)
     df_ind = pd.read_csv('industries_cantons.csv', sep=';', encoding='utf-8-sig', dtype=str)
-    df_ind = df_ind.iloc[:, :6]
-    df_ind.columns = ['canton_ind', 'nb_silos', 'nb_transfo_gc', 'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande']
 
-    for col in ['nb_silos', 'nb_transfo_gc', 'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande']:
+    # On garde uniquement les colonnes utiles par position (ignore les colonnes vides en fin)
+    df_ind = df_ind.iloc[:, :10]
+    df_ind.columns = [
+        'canton_ind',
+        'nb_silos', 'nb_transfo_gc', 'total_gdculture', 'prct_gdculture',
+        'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande', 'total_elevage', 'prct_elevage'
+    ]
+
+    for col in ['nb_silos', 'nb_transfo_gc', 'total_gdculture', 'prct_gdculture',
+                'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande', 'total_elevage', 'prct_elevage']:
         df_ind[col] = df_ind[col].astype(str).str.replace(',', '.')
         df_ind[col] = pd.to_numeric(df_ind[col], errors='coerce').fillna(0)
 
@@ -48,13 +54,14 @@ def load_data():
 # Récupération des données
 df_csv, df_ind, gdf_geo = load_data()
 
-# --- JOINTURES ET NETTOYAGE ---
+# --- JOINTURES ---
 gdf_final = gdf_geo.merge(df_csv, left_on='code', right_on='canton', how='left')
-for col in ['terres_ab', 'score_exploit', 'surfab', 'nb_exploit']:
+for col in ['terres_ab', 'score_exploit', 'surfab', 'nb_exploit', 'prct_bio']:
     gdf_final[col] = pd.to_numeric(gdf_final[col], errors='coerce').fillna(0)
 
 gdf_final = gdf_final.merge(df_ind, left_on='code', right_on='canton_ind', how='left')
-for col in ['nb_silos', 'nb_transfo_gc', 'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande']:
+for col in ['nb_silos', 'nb_transfo_gc', 'total_gdculture', 'prct_gdculture',
+            'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande', 'total_elevage', 'prct_elevage']:
     gdf_final[col] = pd.to_numeric(gdf_final[col], errors='coerce').fillna(0)
 
 # --- INTERFACE UTILISATEUR ---
@@ -71,18 +78,15 @@ with col3:
     type_exploit = st.radio("Type d'activité ?", ["Élevage", "Grande culture"], horizontal=True, key="q3")
 
 # --- CALCULS ---
-# Score Industrie
+# Score Industrie : on utilise directement prct_elevage ou prct_gdculture (déjà normalisés entre 0 et 1)
 if type_exploit == "Élevage":
-    raw_ind = gdf_final['nb_abattoirs'] + gdf_final['nb_laiteries'] + gdf_final['nb_transfo_viande']
+    gdf_final['score_ind'] = gdf_final['prct_elevage']
 else:
-    raw_ind = gdf_final['nb_silos'] + gdf_final['nb_transfo_gc']
-
-i_min, i_max = raw_ind.min(), raw_ind.max()
-gdf_final['score_ind'] = (raw_ind - i_min) / (i_max - i_min) if i_max > i_min else 0
+    gdf_final['score_ind'] = gdf_final['prct_gdculture']
 
 # Score Final
-veut_terres = (reprise == "Oui")
-veut_entraide = (entraide == "Oui")
+veut_terres   = (reprise   == "Oui")
+veut_entraide = (entraide  == "Oui")
 
 base = gdf_final['prct_bio'] if veut_terres else (1 - gdf_final['prct_bio'])
 
@@ -94,18 +98,17 @@ gdf_final['score'] = base * (1 + gdf_final['score_ind']) / 2
 # --- CARTE ---
 st.markdown("### 🗺️ Cantons selon la part de bio")
 
-# Palette séquentielle custom : blanc → jaune → vert
 custom_scale = [
-    [0.0, "white"],   # 0% → blanc
-    [0.05, "yellow"],  # 10% → jaune
-    [1.0, "green"]    # 100% → vert
+    [0.0, "white"],
+    [0.05, "yellow"],
+    [1.0, "green"]
 ]
 
 fig = px.choropleth_mapbox(
     gdf_final,
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
-    color='prct_bio',
+    color='score',
     color_continuous_scale=custom_scale,
     range_color=[0, 1],
     hover_name="nom",
@@ -113,6 +116,8 @@ fig = px.choropleth_mapbox(
         "code": True,
         "prct_bio": ":.2f",
         "terres_ab": ":.2f",
+        "score_ind": ":.2f",
+        "score": ":.2f",
         "surfab": ":.2f",
         "nb_exploit": ":.0f"
     },
@@ -120,16 +125,15 @@ fig = px.choropleth_mapbox(
     opacity=0.7
 )
 
-# Forcer le zoom et le centre
 fig.update_layout(
     mapbox_zoom=7,
-    mapbox_center={"lat": 49.9, "lon": 2.8}
+    mapbox_center={"lat": 49.9, "lon": 2.8},
+    margin={"r":0,"t":0,"l":0,"b":0},
+    height=700
 )
 
-
-fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=700)
 st.plotly_chart(fig, use_container_width=True)
 
 # --- DEBUG ---
 with st.expander("Voir les données brutes"):
-    st.write(gdf_final[['nom', 'code', 'score', 'score_ind']].head())
+    st.write(gdf_final[['nom', 'code', 'score', 'score_ind', 'prct_elevage', 'prct_gdculture']].head(10))
