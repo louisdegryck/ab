@@ -108,6 +108,16 @@ custom_scale = [
     [1.0, "green"]       # max
 ]
 
+# --- CARTE ---
+st.markdown("### 🗺️ Cantons selon la part de bio")
+
+# Palette séquentielle custom : blanc → jaune → vert
+custom_scale = [
+    [0.0, "white"],   # 0% → blanc
+    [0.1, "yellow"],  # 10% → jaune (repère visuel)
+    [1.0, "green"]    # 100% → vert
+]
+
 fig = px.choropleth_mapbox(
     gdf_final,
     geojson=gdf_final.__geo_interface__,
@@ -128,6 +138,8 @@ fig = px.choropleth_mapbox(
     center={"lat": 49.9, "lon": 2.8},
     opacity=0.7
 )
+
+
 
 fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=700)
 st.plotly_chart(fig, use_container_width=True)
