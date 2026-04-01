@@ -59,7 +59,7 @@ fig1 = px.choropleth_mapbox(
     opacity=0.8
 )
 fig1.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=800)
-st.plotly_chart(fig1, use_container_width=True)
+st.plotly_chart(fig1, use_container_width=True, key="carte1")
 
 # ─────────────────────────────────────────────
 # CARTE 2 : carte avec question reprise terres
@@ -92,7 +92,7 @@ fig2 = px.choropleth_mapbox(
     opacity=0.8
 )
 fig2.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=800)
-st.plotly_chart(fig2, use_container_width=True)
+st.plotly_chart(fig2, use_container_width=True, key="carte2")
 
 # ─────────────────────────────────────────────
 # TABLEAU DE VÉRIFICATION
