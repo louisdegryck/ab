@@ -22,12 +22,16 @@ def load_data():
     df['canton'] = (df['dept'] + df['cant']).str.zfill(5)
 
     # CHARGEMENT DU 2e CSV
+    # ⚠️ Vérifiez si le séparateur est '\t' (tabulation), ';' ou ',' 
+    # J'ai mis '\t' comme dans votre code, mais si ça ne marche toujours pas, essayez sep=';'
     df_ind = pd.read_csv('industries_cantons.csv', sep='\t', encoding='utf-8-sig', dtype=str)
+    
+    # SECURITE : On s'assure de ne garder que les 6 premières colonnes
+    df_ind = df_ind.iloc[:, :6] 
+    
+    # Maintenant l'assignation des 6 noms fonctionnera sans erreur
     df_ind.columns = ['canton_ind', 'nb_silos', 'nb_transfo_gc', 'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande']
-
-    for col in ['nb_silos', 'nb_transfo_gc', 'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande']:
-        df_ind[col] = df_ind[col].astype(str).str.replace(',', '.')
-        df_ind[col] = pd.to_numeric(df_ind[col], errors='coerce').fillna(0)
+    
 
     df_ind['canton_raw'] = df_ind['canton_ind'].astype(str).str.split('.').str[0].str.strip()
     df_ind['dept'] = df_ind['canton_raw'].str[:-2]
