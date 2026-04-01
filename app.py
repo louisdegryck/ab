@@ -21,32 +21,50 @@ def load_data():
     df['cant'] = df['canton_raw'].str[-2:].str.zfill(3)
     df['canton'] = (df['dept'] + df['cant']).str.zfill(5)
 
+    # CHARGEMENT DU 2e CSV
+    df_ind = pd.read_csv('industries_cantons.csv', sep='\t', encoding='utf-8-sig', dtype=str)
+    df_ind.columns = ['canton_ind', 'nb_silos', 'nb_transfo_gc', 'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande']
+
+    for col in ['nb_silos', 'nb_transfo_gc', 'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande']:
+        df_ind[col] = df_ind[col].astype(str).str.replace(',', '.')
+        df_ind[col] = pd.to_numeric(df_ind[col], errors='coerce').fillna(0)
+
+    df_ind['canton_raw'] = df_ind['canton_ind'].astype(str).str.split('.').str[0].str.strip()
+    df_ind['dept'] = df_ind['canton_raw'].str[:-2]
+    df_ind['cant'] = df_ind['canton_raw'].str[-2:].str.zfill(3)
+    df_ind['canton_ind'] = (df_ind['dept'] + df_ind['cant']).str.zfill(5)
+
     url_geojson = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/cantons-version-simplifiee.geojson"
     gdf_geo = gpd.read_file(url_geojson)
     gdf_geo['code'] = gdf_geo['code'].astype(str).str.strip()
     gdf_geo = gdf_geo[gdf_geo['code'].str[:2].isin(['02', '59', '60', '62', '80'])].copy()
 
-    return df, gdf_geo
+    return df, df_ind, gdf_geo
 
 # Chargement
-df_csv, gdf_geo = load_data()
+df_csv, df_ind, gdf_geo = load_data()
 
-# JOINTURE
+# JOINTURE principale
 gdf_final = gdf_geo.merge(df_csv, left_on='code', right_on='canton', how='left')
-gdf_final['terres_ab']    = gdf_final['terres_ab'].fillna(0)
+gdf_final['terres_ab']     = gdf_final['terres_ab'].fillna(0)
 gdf_final['score_exploit'] = gdf_final['score_exploit'].fillna(0)
-gdf_final['surfab']       = gdf_final['surfab'].fillna(0)
-gdf_final['nb_exploit']   = gdf_final['nb_exploit'].fillna(0)
+gdf_final['surfab']        = gdf_final['surfab'].fillna(0)
+gdf_final['nb_exploit']    = gdf_final['nb_exploit'].fillna(0)
+
+# JOINTURE industries
+gdf_final = gdf_final.merge(df_ind, left_on='code', right_on='canton_ind', how='left')
+for col in ['nb_silos', 'nb_transfo_gc', 'nb_abattoirs', 'nb_laiteries', 'nb_transfo_viande']:
+    gdf_final[col] = gdf_final[col].fillna(0)
 
 # ─────────────────────────────────────────────
 # QUESTIONS
 # ─────────────────────────────────────────────
 st.subheader("🌱 Vos préférences")
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
     reprise = st.radio(
-        "Souhaitez-vous reprendre des terres déjà converties en agriculture biologique ?",
+        "Souhaitez-vous reprendre des terres converties ?",
         options=["Oui", "Non"],
         horizontal=True,
         key="q1"
@@ -60,47 +78,55 @@ with col2:
         key="q2"
     )
 
+with col3:
+    type_exploit = st.radio(
+        "Quel type d'exploitation souhaitez-vous ?",
+        options=["Élevage", "Grande culture"],
+        horizontal=True,
+        key="q3"
+    )
+
+# ─────────────────────────────────────────────
+# SCORE INDUSTRIE (normalisé entre 0 et 1)
+# ─────────────────────────────────────────────
+if type_exploit == "Élevage":
+    raw_ind = gdf_final['nb_abattoirs'] + gdf_final['nb_laiteries'] + gdf_final['nb_transfo_viande']
+else:
+    raw_ind = gdf_final['nb_silos'] + gdf_final['nb_transfo_gc']
+
+# Normalisation min-max pour ramener entre 0 et 1
+ind_min, ind_max = raw_ind.min(), raw_ind.max()
+if ind_max > ind_min:
+    gdf_final['score_ind'] = (raw_ind - ind_min) / (ind_max - ind_min)
+else:
+    gdf_final['score_ind'] = 0
+
 # ─────────────────────────────────────────────
 # CALCUL DU SCORE COMPOSITE
 # ─────────────────────────────────────────────
-# Chaque question active ou non sa note (1 = correspond, 0 = ne correspond pas)
-# terres_ab    : 1 = terres converties disponibles → pertinent si reprise=Oui
-# score_exploit: 1 = exploitants en entraide      → pertinent si entraide=Oui
+veut_terres   = reprise   == "Oui"
+veut_entraide = entraide  == "Oui"
 
-veut_terres  = 1 if reprise  == "Oui" else 0
-veut_entraide = 1 if entraide == "Oui" else 0
-# terres_ab est toujours la base
-# score_exploit amplifie si entraide=Oui, sinon aucun impact
+# Base terres_ab selon reprise
+if veut_terres:
+    base = gdf_final['terres_ab']
+else:
+    base = 1 - gdf_final['terres_ab']
 
-if veut_terres and veut_entraide:
-    # Entraide amplifie les terres converties
-    gdf_final['score'] = gdf_final['terres_ab'] * (1 + gdf_final['score_exploit']) / 2
+# Amplification entraide
+if veut_entraide:
+    base = base * (1 + gdf_final['score_exploit']) / 2
 
-elif veut_terres and not veut_entraide:
-    # Entraide n'a pas d'impact, on affiche juste terres_ab
-    gdf_final['score'] = gdf_final['terres_ab']
+# Amplification industrie (toujours active, amplifie le gradient)
+gdf_final['score'] = base * (1 + gdf_final['score_ind']) / 2
 
-elif not veut_terres and veut_entraide:
-    # On inverse terres_ab, entraide amplifie
-    gdf_final['score'] = (1 - gdf_final['terres_ab']) * (1 + gdf_final['score_exploit']) / 2
-
-else:  # Les deux Non
-    # On inverse terres_ab, entraide n'a pas d'impact
-    gdf_final['score'] = 1 - gdf_final['terres_ab']
-    
 # ─────────────────────────────────────────────
-# TITRE DYNAMIQUE selon les réponses
+# TITRE DYNAMIQUE
 # ─────────────────────────────────────────────
 labels = []
-if reprise == "Oui":
-    labels.append("terres converties disponibles")
-else:
-    labels.append("sans terres converties")
-if entraide == "Oui":
-    labels.append("avec entraide")
-else:
-    labels.append("sans entraide")
-
+labels.append("terres converties" if veut_terres else "sans terres converties")
+labels.append("avec entraide" if veut_entraide else "sans entraide")
+labels.append("élevage" if type_exploit == "Élevage" else "grande culture")
 st.markdown(f"### 🗺️ Cantons favorables : {' · '.join(labels)}")
 
 # ─────────────────────────────────────────────
@@ -120,6 +146,7 @@ fig = px.choropleth_mapbox(
         "score_exploit": ":.2f",
         "surfab": ":.2f",
         "nb_exploit": ":.0f",
+        "score_ind": ":.2f",
         "score": ":.2f"
     },
     mapbox_style="carto-positron",
@@ -134,10 +161,13 @@ st.plotly_chart(fig, use_container_width=True, key="carte_principale")
 # TABLEAU DE VÉRIFICATION
 # ─────────────────────────────────────────────
 st.subheader("Données détectées")
-c1, c2 = st.columns(2)
+c1, c2, c3 = st.columns(3)
 with c1:
-    st.write("Ton CSV nettoyé :")
+    st.write("CSV agricole :")
     st.dataframe(df_csv[['canton', 'surfab', 'terres_ab', 'score_exploit']].head(10))
 with c2:
-    st.write("Le GeoJSON (Attendu) :")
+    st.write("CSV industries :")
+    st.dataframe(df_ind[['canton_ind', 'nb_silos', 'nb_abattoirs', 'nb_laiteries']].head(10))
+with c3:
+    st.write("GeoJSON :")
     st.dataframe(gdf_geo[['code', 'nom']].head(10))
