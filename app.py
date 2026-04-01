@@ -101,14 +101,14 @@ fig = px.choropleth_mapbox(
     gdf_final,
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
-    color='prct_bio',  # 👈 on remplace score par prct_bio
+    color='prct_bio',
     color_continuous_scale="YlGn",
-    range_color=[0, 1],  # 👈 important pour garder une échelle fixe
-    color_continuous_midpoint=0.1,
+    range_color=[0, 1],
+    color_continuous_midpoint=0.1,  # 👈 pivot à 10%
     hover_name="nom",
     hover_data={
         "code": True,
-        "prct_bio": ":.2f",   # 👈 on affiche la bonne variable
+        "prct_bio": ":.2f",
         "terres_ab": ":.2f",
         "surfab": ":.2f",
         "nb_exploit": ":.0f"
