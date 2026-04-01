@@ -63,27 +63,25 @@ with col2:
 # ─────────────────────────────────────────────
 # CALCUL DU SCORE COMPOSITE
 # ─────────────────────────────────────────────
-# Chaque question active ou non sa note (1 = correspond, 0 = ne correspond pas)
-# terres_ab    : 1 = terres converties disponibles → pertinent si reprise=Oui
-# score_exploit: 1 = exploitants en entraide      → pertinent si entraide=Oui
-
-veut_terres  = 1 if reprise  == "Oui" else 0
-veut_entraide = 1 if entraide == "Oui" else 0
-
-# Cas possibles :
-# Les deux Oui  → score = moyenne des deux notes
-# Une seule Oui → score = uniquement cette note
-# Les deux Non  → on inverse les deux notes (zones sans terres converties ET sans entraide)
+# terres_ab est toujours la base
+# score_exploit amplifie si entraide=Oui, sinon aucun impact
 
 if veut_terres and veut_entraide:
-    gdf_final['score'] = (gdf_final['terres_ab'] + gdf_final['score_exploit']) / 2
-elif veut_terres and not veut_entraide:
-    gdf_final['score'] = gdf_final['terres_ab'] * (1 - gdf_final['score_exploit'])
-elif not veut_terres and veut_entraide:
-    gdf_final['score'] = (1 - gdf_final['terres_ab']) * gdf_final['score_exploit']
-else:  # Les deux Non
-    gdf_final['score'] = (1 - gdf_final['terres_ab']) * (1 - gdf_final['score_exploit'])
+    # Entraide amplifie les terres converties
+    gdf_final['score'] = gdf_final['terres_ab'] * (1 + gdf_final['score_exploit']) / 2
 
+elif veut_terres and not veut_entraide:
+    # Entraide n'a pas d'impact, on affiche juste terres_ab
+    gdf_final['score'] = gdf_final['terres_ab']
+
+elif not veut_terres and veut_entraide:
+    # On inverse terres_ab, entraide amplifie
+    gdf_final['score'] = (1 - gdf_final['terres_ab']) * (1 + gdf_final['score_exploit']) / 2
+
+else:  # Les deux Non
+    # On inverse terres_ab, entraide n'a pas d'impact
+    gdf_final['score'] = 1 - gdf_final['terres_ab']
+    
 # ─────────────────────────────────────────────
 # TITRE DYNAMIQUE selon les réponses
 # ─────────────────────────────────────────────
