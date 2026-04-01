@@ -86,13 +86,13 @@ else:
     couleur_base = gdf_final['prct_gdculture'].copy()
 
 # Amplification "Terres converties" : booste les zones où prct_bio > 0.05
-if reprise == "Oui":
-    masque_terres = gdf_final['prct_bio'] > 0.05
+if reprise == "Non":
+    masque_terres = gdf_final['prct_bio'] < 0.05
     couleur_base = couleur_base.where(~masque_terres, couleur_base * 1.5)
 
 # Amplification "Entraide" : booste les zones où score_exploit > 0.5
-if entraide == "Oui":
-    masque_entraide = gdf_final['score_exploit'] > 0.5
+if entraide == "Non":
+    masque_entraide = gdf_final['score_exploit'] < 0.5
     couleur_base = couleur_base.where(~masque_entraide, couleur_base * 1.5)
 
 # On plafonne à 1 pour rester dans l'échelle [0, 1]
