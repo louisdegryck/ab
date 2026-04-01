@@ -94,19 +94,21 @@ gdf_final['score'] = base * (1 + gdf_final['score_ind']) / 2
 # --- CARTE ---
 st.markdown(f"### 🗺️ Cantons favorables")
 
+# --- CARTE ---
+st.markdown(f"### 🗺️ Cantons selon la part de bio")
+
 fig = px.choropleth_mapbox(
     gdf_final,
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
-    color='score',
+    color='prct_bio',  # 👈 on remplace score par prct_bio
     color_continuous_scale="YlGn",
-    range_color=[0, 1],
+    range_color=[0, 1],  # 👈 important pour garder une échelle fixe
     hover_name="nom",
     hover_data={
         "code": True,
+        "prct_bio": ":.2f",   # 👈 on affiche la bonne variable
         "terres_ab": ":.2f",
-        "score_exploit": ":.2f",
-        "score": ":.2f",
         "surfab": ":.2f",
         "nb_exploit": ":.0f"
     },
@@ -115,6 +117,8 @@ fig = px.choropleth_mapbox(
     center={"lat": 49.9, "lon": 2.8},
     opacity=0.7
 )
+
+st.plotly_chart(fig)
 fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=700)
 st.plotly_chart(fig, use_container_width=True)
 
