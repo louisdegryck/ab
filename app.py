@@ -9,23 +9,23 @@ st.title("🚜 Carte Surface Agricole Biologique - Hauts-de-France")
 @st.cache_data
 def load_data():
     df = pd.read_csv('cartetest.csv', sep=';', encoding='utf-8-sig', dtype=str)
-    df = df.iloc[:, [0, 1, 2]] 
-    df.columns = ['canton', 'surfab', 'terre_ab']
-    
-    for col in ['surfab', 'terre_ab']:
+    df = df.iloc[:, [0, 1, 2, 3, 4]]
+    df.columns = ['canton', 'surfab', 'terres_ab', 'nb_exploit', 'score_exploit']
+
+    for col in ['surfab', 'terres_ab', 'nb_exploit', 'score_exploit']:
         df[col] = df[col].astype(str).str.replace(',', '.')
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-    
+
     df['canton_raw'] = df['canton'].astype(str).str.split('.').str[0].str.strip()
     df['dept'] = df['canton_raw'].str[:-2]
     df['cant'] = df['canton_raw'].str[-2:].str.zfill(3)
     df['canton'] = (df['dept'] + df['cant']).str.zfill(5)
-    
+
     url_geojson = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/cantons-version-simplifiee.geojson"
     gdf_geo = gpd.read_file(url_geojson)
     gdf_geo['code'] = gdf_geo['code'].astype(str).str.strip()
     gdf_geo = gdf_geo[gdf_geo['code'].str[:2].isin(['02', '59', '60', '62', '80'])].copy()
-    
+
     return df, gdf_geo
 
 # Chargement
@@ -33,34 +33,90 @@ df_csv, gdf_geo = load_data()
 
 # JOINTURE
 gdf_final = gdf_geo.merge(df_csv, left_on='code', right_on='canton', how='left')
-gdf_final['terre_ab'] = gdf_final['terre_ab'].fillna(0)
-gdf_final['surfab'] = gdf_final['surfab'].fillna(0)
+gdf_final['terres_ab']    = gdf_final['terres_ab'].fillna(0)
+gdf_final['score_exploit'] = gdf_final['score_exploit'].fillna(0)
+gdf_final['surfab']       = gdf_final['surfab'].fillna(0)
+gdf_final['nb_exploit']   = gdf_final['nb_exploit'].fillna(0)
 
-# QUESTION
-st.subheader("🌱 Préférence d'affichage")
-reprise = st.radio(
-    "Souhaitez-vous reprendre des terres converties ?",
-    options=["Oui", "Non"],
-    horizontal=True
-)
+# ─────────────────────────────────────────────
+# QUESTIONS
+# ─────────────────────────────────────────────
+st.subheader("🌱 Vos préférences")
+col1, col2 = st.columns(2)
 
-# SENS DU GRADIENT selon la réponse
-# Oui → vert foncé = valeur haute (zones très converties en haut)
-# Non → vert foncé = valeur basse (zones peu converties mises en avant)
-color_scale = "YlGn" if reprise == "Oui" else "YlGn_r"
+with col1:
+    reprise = st.radio(
+        "Souhaitez-vous reprendre des terres converties ?",
+        options=["Oui", "Non"],
+        horizontal=True,
+        key="q1"
+    )
 
+with col2:
+    entraide = st.radio(
+        "Souhaitez-vous travailler en entraide ?",
+        options=["Oui", "Non"],
+        horizontal=True,
+        key="q2"
+    )
+
+# ─────────────────────────────────────────────
+# CALCUL DU SCORE COMPOSITE
+# ─────────────────────────────────────────────
+# Chaque question active ou non sa note (1 = correspond, 0 = ne correspond pas)
+# terres_ab    : 1 = terres converties disponibles → pertinent si reprise=Oui
+# score_exploit: 1 = exploitants en entraide      → pertinent si entraide=Oui
+
+veut_terres  = 1 if reprise  == "Oui" else 0
+veut_entraide = 1 if entraide == "Oui" else 0
+
+# Cas possibles :
+# Les deux Oui  → score = moyenne des deux notes
+# Une seule Oui → score = uniquement cette note
+# Les deux Non  → on inverse les deux notes (zones sans terres converties ET sans entraide)
+
+if veut_terres and veut_entraide:
+    gdf_final['score'] = (gdf_final['terres_ab'] + gdf_final['score_exploit']) / 2
+elif veut_terres and not veut_entraide:
+    gdf_final['score'] = gdf_final['terres_ab'] * (1 - gdf_final['score_exploit'])
+elif not veut_terres and veut_entraide:
+    gdf_final['score'] = (1 - gdf_final['terres_ab']) * gdf_final['score_exploit']
+else:  # Les deux Non
+    gdf_final['score'] = (1 - gdf_final['terres_ab']) * (1 - gdf_final['score_exploit'])
+
+# ─────────────────────────────────────────────
+# TITRE DYNAMIQUE selon les réponses
+# ─────────────────────────────────────────────
+labels = []
+if reprise == "Oui":
+    labels.append("terres converties disponibles")
+else:
+    labels.append("sans terres converties")
+if entraide == "Oui":
+    labels.append("avec entraide")
+else:
+    labels.append("sans entraide")
+
+st.markdown(f"### 🗺️ Cantons favorables : {' · '.join(labels)}")
+
+# ─────────────────────────────────────────────
 # AFFICHAGE DE LA CARTE
+# ─────────────────────────────────────────────
 fig = px.choropleth_mapbox(
     gdf_final,
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
-    color='terre_ab',
-    color_continuous_scale=color_scale,
+    color='score',
+    color_continuous_scale="YlGn",
+    range_color=[0, 1],
     hover_name="nom",
     hover_data={
-        "code": True, 
-        "terre_ab": ":.2f", 
-        "surfab": ":.2f"
+        "code": True,
+        "terres_ab": ":.2f",
+        "score_exploit": ":.2f",
+        "surfab": ":.2f",
+        "nb_exploit": ":.0f",
+        "score": ":.2f"
     },
     mapbox_style="carto-positron",
     zoom=7.5,
@@ -68,14 +124,16 @@ fig = px.choropleth_mapbox(
     opacity=0.8
 )
 fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=800)
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True, key="carte_principale")
 
+# ─────────────────────────────────────────────
 # TABLEAU DE VÉRIFICATION
+# ─────────────────────────────────────────────
 st.subheader("Données détectées")
 c1, c2 = st.columns(2)
 with c1:
     st.write("Ton CSV nettoyé :")
-    st.dataframe(df_csv[['canton', 'surfab', 'terre_ab']].head(10))
+    st.dataframe(df_csv[['canton', 'surfab', 'terres_ab', 'score_exploit']].head(10))
 with c2:
     st.write("Le GeoJSON (Attendu) :")
     st.dataframe(gdf_geo[['code', 'nom']].head(10))
