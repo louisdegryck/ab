@@ -3,76 +3,72 @@ import pandas as pd
 import geopandas as gpd
 import plotly.express as px
 
-st.set_page_config(page_title="Carte Terres AB", layout="wide")
-st.title("🚜 Surface des Terres en Agriculture Biologique par Canton")
+st.set_page_config(page_title="Carte Surface AB", layout="wide")
+st.title("🚜 Surface Agricole Biologique par Canton (Hauts-de-France)")
 
 @st.cache_data
-def load_all_data():
-    # --- 1. CHARGEMENT DES DONNÉES AGRICOLES ---
-    # Ton nouveau fichier : canton;surfab;terres_ab
-    df_csv = pd.read_csv('cartetest.csv', sep=';')
-    # On s'assure que terres_ab est numérique
-    df_csv['terres_ab'] = pd.to_numeric(df_csv['terres_ab'].astype(str).str.replace(',', '.'), errors='coerce')
-    # On nettoie la colonne canton pour la jointure
-    df_csv['canton'] = df_csv['canton'].astype(str).str.strip()
-
-    # --- 2. CHARGEMENT DES LIMITES GÉOGRAPHIQUES (COMMUNES) ---
-    url_geojson = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/communes-version-simplifiee.geojson"
-    gdf_com = gpd.read_file(url_geojson)
+def load_data():
+    # 1. CHARGEMENT DU CSV
+    # On force le type 'str' pour ne pas perdre le 0 au début des codes
+    df = pd.read_csv('cartetest.csv', sep=';', dtype={'canton': str})
     
-    # Filtrage Hauts-de-France (Départements 60, 80, 02, 59, 62)
-    gdf_com = gdf_com[gdf_com['code'].str[:2].isin(['60', '80', '02', '59', '62'])].copy()
-    gdf_com['geometry'] = gdf_com.geometry.simplify(tolerance=0.002)
+    # Nettoyage des noms de colonnes (enlève espaces invisibles)
+    df.columns = df.columns.str.strip()
+    
+    # Harmonisation : on renomme terre_ab en terres_ab si nécessaire
+    if 'terre_ab' in df.columns:
+        df = df.rename(columns={'terre_ab': 'terres_ab'})
 
-    # --- 3. MAPPING COMMUNES -> CANTONS (INSEE) ---
-    url_insee = "https://www.insee.fr/fr/statistiques/fichier/7766585/v_commune_2024.csv"
-    try:
-        df_insee = pd.read_csv(url_insee)
-        # Création du canton_id pour matcher avec ton CSV (ex: "Canton 60-1")
-        # Ajuste ce format si tes cantons dans le CSV sont écrits différemment
-        df_insee['canton_id'] = "Canton " + df_insee['DEP'].astype(str) + "-" + df_insee['CAN'].astype(str)
-        df_map = df_insee[['COM', 'canton_id']].copy()
-        df_map.columns = ['codeinseecommune', 'canton']
-    except:
-        # Solution de secours si l'INSEE est injoignable
-        df_map = pd.DataFrame({'codeinseecommune': gdf_com['code'].unique()})
-        df_map['canton'] = "Secteur " + df_map['codeinseecommune'].str[:3]
+    # Nettoyage des chiffres (remplace virgule par point)
+    for col in ['surfab', 'terres_ab']:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.replace(',', '.')
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-    # --- 4. CRÉATION DU FOND DE CARTE DES CANTONS (DISSOLVE) ---
-    gdf_com_mapped = gdf_com.merge(df_map, left_on='code', right_on='codeinseecommune', how='inner')
-    gdf_cantons = gdf_com_mapped.dissolve(by='canton').reset_index()
+    # CORRECTION CRUCIALE DU CODE CANTON : 
+    # Le GeoJSON attend 4 chiffres (ex: 0219 pour Aisne, canton 19)
+    df['canton'] = df['canton'].str.zfill(4)
 
-    return df_csv, gdf_cantons
+    # 2. CHARGEMENT DU GÉOJSON DES CANTONS
+    url_geojson = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/cantons-version-simplifiee.geojson"
+    gdf_cantons = gpd.read_file(url_geojson)
+    
+    # Filtrage sur les départements des Hauts-de-France (02, 59, 60, 62, 80)
+    gdf_cantons = gdf_cantons[gdf_cantons['code'].str[:2].isin(['02', '59', '60', '62', '80'])].copy()
+    
+    return df, gdf_cantons
 
-with st.spinner("Chargement de la carte des cantons..."):
-    df_agri, gdf_cantons = load_all_data()
+with st.spinner("Génération de la carte..."):
+    df_csv, gdf_geo = load_data()
 
-# --- JOINTURE ET PRÉPARATION ---
-# On fusionne tes données CSV avec les géométries des cantons
-gdf_final = gdf_cantons.merge(df_agri, on='canton', how='left')
+# --- JOINTURE ---
+# On fusionne le GeoJSON avec vos données CSV sur la base du code canton
+gdf_final = gdf_geo.merge(df_csv, left_on='code', right_on='canton', how='left')
 gdf_final['terres_ab'] = gdf_final['terres_ab'].fillna(0)
-gdf_final = gdf_final.reset_index(drop=True)
+gdf_final['surfab'] = gdf_final['surfab'].fillna(0)
 
-# --- AFFICHAGE DE LA CARTE ---
+# --- CARTE PLOTLY ---
 fig = px.choropleth_mapbox(
     gdf_final,
-    geojson=gdf_final.__geo_interface__, 
+    geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
-    color='terres_ab', # On utilise terres_ab pour le dégradé
-    color_continuous_scale=["#ffffff", "#99d98c", "#1a7431"], # Corrigé (plus de saut de ligne)
-    hover_name="canton",
-    hover_data={"terres_ab": True, "surfab": True},
+    color='terres_ab',
+    color_continuous_scale=["#ffffff", "#99d98c", "#1a7431"],
+    hover_name="nom", # Nom du canton venant du GeoJSON
+    hover_data={"canton": True, "terres_ab": True, "surfab": True},
     mapbox_style="carto-positron",
-    zoom=7,
+    zoom=7.5,
     center={"lat": 49.9, "lon": 2.8},
-    opacity=0.7
+    opacity=0.8
 )
 
-fig.update_traces(marker_line_width=0.5, marker_line_color="white")
-fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=700)
+fig.update_traces(marker_line_width=0.2, marker_line_color="gray")
+fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=800)
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Optionnel : afficher les données
-if st.checkbox("Afficher le tableau des données"):
-    st.dataframe(df_agri)
+# Diagnostic en cas de besoin
+if st.checkbox("Vérifier les données chargées"):
+    st.write("Exemple de codes cantons après correction (doit être 0219, 5919...) :")
+    st.write(df_csv['canton'].head())
+    st.dataframe(df_csv)
