@@ -104,6 +104,7 @@ fig = px.choropleth_mapbox(
     color='prct_bio',  # 👈 on remplace score par prct_bio
     color_continuous_scale="YlGn",
     range_color=[0, 1],  # 👈 important pour garder une échelle fixe
+    color_continuous_midpoint=0.1,
     hover_name="nom",
     hover_data={
         "code": True,
@@ -118,7 +119,6 @@ fig = px.choropleth_mapbox(
     opacity=0.7
 )
 
-st.plotly_chart(fig)
 fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=700)
 st.plotly_chart(fig, use_container_width=True)
 
