@@ -63,6 +63,12 @@ with col2:
 # ─────────────────────────────────────────────
 # CALCUL DU SCORE COMPOSITE
 # ─────────────────────────────────────────────
+# Chaque question active ou non sa note (1 = correspond, 0 = ne correspond pas)
+# terres_ab    : 1 = terres converties disponibles → pertinent si reprise=Oui
+# score_exploit: 1 = exploitants en entraide      → pertinent si entraide=Oui
+
+veut_terres  = 1 if reprise  == "Oui" else 0
+veut_entraide = 1 if entraide == "Oui" else 0
 # terres_ab est toujours la base
 # score_exploit amplifie si entraide=Oui, sinon aucun impact
 
