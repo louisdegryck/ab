@@ -22,10 +22,8 @@ def load_data():
     df['cant'] = df['canton_raw'].str[-2:].str.zfill(3)
     df['canton'] = (df['dept'] + df['cant']).str.zfill(5)
 
-    # 2. Chargement du CSV Industries (nouveau format)
+    # 2. Chargement du CSV Industries
     df_ind = pd.read_csv('industries_cantons.csv', sep=';', encoding='utf-8-sig', dtype=str)
-
-    # On garde uniquement les colonnes utiles par position (ignore les colonnes vides en fin)
     df_ind = df_ind.iloc[:, :10]
     df_ind.columns = [
         'canton_ind',
@@ -78,13 +76,13 @@ with col3:
     type_exploit = st.radio("Type d'activité ?", ["Élevage", "Grande culture"], horizontal=True, key="q3")
 
 # --- CALCULS ---
-# Score Industrie : on utilise directement prct_elevage ou prct_gdculture (déjà normalisés entre 0 et 1)
 if type_exploit == "Élevage":
     gdf_final['score_ind'] = gdf_final['prct_elevage']
+    couleur = 'prct_elevage'
 else:
     gdf_final['score_ind'] = gdf_final['prct_gdculture']
+    couleur = 'prct_gdculture'
 
-# Score Final
 veut_terres   = (reprise   == "Oui")
 veut_entraide = (entraide  == "Oui")
 
@@ -96,7 +94,8 @@ if veut_entraide:
 gdf_final['score'] = base * (1 + gdf_final['score_ind']) / 2
 
 # --- CARTE ---
-st.markdown("### 🗺️ Cantons selon la part de bio")
+label_activite = "Élevage" if type_exploit == "Élevage" else "Grande culture"
+st.markdown(f"### 🗺️ Cantons favorables — {label_activite}")
 
 custom_scale = [
     [0.0, "white"],
@@ -108,7 +107,7 @@ fig = px.choropleth_mapbox(
     gdf_final,
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
-    color='score',
+    color=couleur,
     color_continuous_scale=custom_scale,
     range_color=[0, 1],
     hover_name="nom",
@@ -132,7 +131,7 @@ fig.update_layout(
     height=700
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True, key="carte_principale")
 
 # --- DEBUG ---
 with st.expander("Voir les données brutes"):
