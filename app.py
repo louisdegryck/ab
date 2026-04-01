@@ -23,13 +23,22 @@ def load_data():
         df[col] = df[col].astype(str).str.replace(',', '.')
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
     
-    # 4. NETTOYAGE DES CODES CANTONS (ex: 219 -> 0219)
-    df['canton'] = df['canton'].astype(str).str.split('.').str[0].str.strip().str.zfill(4)
-    
-    # 5. CHARGEMENT DU FOND DE CARTE
-    url_geojson = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/cantons-version-simplifiee.geojson"
-    gdf_geo = gpd.read_file(url_geojson)
-    gdf_geo['code'] = gdf_geo['code'].astype(str).str.strip().str.zfill(4)
+      # 4. NETTOYAGE ET RECONSTRUCTION DES CODES CANTONS
+# Ton CSV : "5919" = dept "59" + canton "19" → on reconstruit "59019" (5 chiffres)
+df['canton_raw'] = df['canton'].astype(str).str.split('.').str[0].str.strip()
+
+# Le département = les 2 premiers chiffres, le canton = le reste, paddé à 3 chiffres
+df['dept'] = df['canton_raw'].str[:-2]          # "59" depuis "5919"
+df['cant'] = df['canton_raw'].str[-2:].str.zfill(3)  # "019" depuis "19"
+df['canton'] = df['dept'] + df['cant']           # "59019"
+
+# 5. CHARGEMENT DU FOND DE CARTE
+url_geojson = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/cantons-version-simplifiee.geojson"
+gdf_geo = gpd.read_file(url_geojson)
+gdf_geo['code'] = gdf_geo['code'].astype(str).str.strip()  # déjà en 5 chiffres
+
+# Filtrage Hauts-de-France (02, 59, 60, 62, 80)
+gdf_geo = gdf_geo[gdf_geo['code'].str[:2].isin(['02', '59', '60', '62', '80'])].copy()
     
     # Filtrage Hauts-de-France (02, 59, 60, 62, 80)
     gdf_geo = gdf_geo[gdf_geo['code'].str[:2].isin(['02', '59', '60', '62', '80'])].copy()
