@@ -102,9 +102,9 @@ fig = px.choropleth_mapbox(
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
     color='prct_bio',
-    color_continuous_scale="YlGn",
+    color_continuous_scale=["red", "yellow", "green"],  # divergente
     range_color=[0, 1],
-    color_continuous_midpoint=0.1,  # 👈 pivot à 10%
+    color_continuous_midpoint=0.1,  # pivot à 10%
     hover_name="nom",
     hover_data={
         "code": True,
