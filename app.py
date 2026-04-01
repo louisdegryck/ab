@@ -14,7 +14,7 @@ def load_data():
     df = df.iloc[:, :6] 
     df.columns = ['canton', 'surfab', 'terres_ab', 'nb_exploit', 'score_exploit','prct_bio']
 
-    for col in ['surfab', 'terres_ab', 'nb_exploit', 'score_exploit','prct_bio]:
+    for col in ['surfab', 'terres_ab', 'nb_exploit', 'score_exploit','prct_bio']:
         df[col] = df[col].astype(str).str.replace(',', '.')
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
