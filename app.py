@@ -97,14 +97,24 @@ st.markdown(f"### 🗺️ Cantons favorables")
 # --- CARTE ---
 st.markdown(f"### 🗺️ Cantons selon la part de bio")
 
+# --- CARTE ---
+st.markdown("### 🗺️ Cantons selon la part de bio")
+
+# Création d'une palette séquentielle custom
+# 0 → couleur claire, 0.1 → couleur jaune, 1 → couleur verte
+custom_scale = [
+    [0.0, "lightgray"],  # très faible
+    [0.1, "yellow"],     # pivot à 10%
+    [1.0, "green"]       # max
+]
+
 fig = px.choropleth_mapbox(
     gdf_final,
     geojson=gdf_final.__geo_interface__,
     locations=gdf_final.index,
     color='prct_bio',
-    color_continuous_scale=["red", "yellow", "green"],  # palette divergente
+    color_continuous_scale=custom_scale,
     range_color=[0, 1],
-    color_continuous_midpoint=0.1,  # pivot à 10%
     hover_name="nom",
     hover_data={
         "code": True,
@@ -118,7 +128,6 @@ fig = px.choropleth_mapbox(
     center={"lat": 49.9, "lon": 2.8},
     opacity=0.7
 )
-
 
 fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, height=700)
 st.plotly_chart(fig, use_container_width=True)
