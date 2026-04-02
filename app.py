@@ -57,36 +57,41 @@ with col3:
 
 # --- CALCULS ---
 
+# Alpha : intensité de l'effet progressif (ajustable)
+alpha = 1.0
+
 # 1. Score de base selon le type d'activité
 if type_exploit == "Élevage":
-    score = gdf_final['prct_elevage'].copy()
+    score_base = gdf_final['prct_elevage'].copy().values
 else:
-    score = gdf_final['prct_gdculture'].copy()
+    score_base = gdf_final['prct_gdculture'].copy().values
 
-# Paramètres d'intensité
-alpha_entraide = 0.4
-alpha_terres = 0.4
-
-# 2. Effet "Terres déjà converties" (progressif)
+# 2. Effet progressif "Terres déjà converties"
+# Score_final = Score_base × (1 + α × (prct_SAU_normalise − 0.5))
+# > 0.5 → bonus, < 0.5 → malus, = 0.5 → neutre
 if reprise == "Oui":
-    score = score * (1 + alpha_terres * (gdf_final['prct_SAU_normalise'] - 0.5))
+    E_terres = gdf_final['prct_SAU_normalise'].values
+    score_base = score_base * (1 + alpha * (E_terres - 0.5))
 
-# 3. Effet "Entraide" (progressif)
+# 3. Effet progressif "Besoin d'entraide"
+# Score_final = Score_précédent × (1 + α × (nb_exploit_normalise − 0.5))
+# > 0.5 → bonus, < 0.5 → malus, = 0.5 → neutre
 if entraide == "Oui":
-    score = score * (1 + alpha_entraide * (gdf_final['nb_exploit_normalise'] - 0.5))
+    E_entraide = gdf_final['nb_exploit_normalise'].values
+    score_base = score_base * (1 + alpha * (E_entraide - 0.5))
 
-# 4. Nettoyage / sécurisation
-gdf_final['score_final'] = np.clip(score, 0, 1)
+# Plafonnement entre 0 et 1
+gdf_final['score_final'] = np.clip(score_base, 0, 1)
 
 # --- CARTE ---
 st.markdown(f"### 🗺️ Cantons favorables — {type_exploit}")
 
 custom_scale = [
-    [0.0, "#d73027"],   # rouge
-    [0.25, "#f46d43"],  # orange rouge
-    [0.5, "#fee08b"],   # jaune
-    [0.75, "#a6d96a"],  # vert clair
-    [1.0, "#1a9850"]    # vert foncé
+    [0.0,  "#d73027"],
+    [0.25, "#f46d43"],
+    [0.5,  "#fee08b"],
+    [0.75, "#a6d96a"],
+    [1.0,  "#1a9850"]
 ]
 
 fig = px.choropleth_mapbox(
