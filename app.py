@@ -2,12 +2,7 @@ import streamlit as st
 import pandas as pd
 import geopandas as gpd
 import plotly.express as px
-import plotly.graph_objects as go
 import numpy as np
-import requests
-import zipfile
-import io
-import json
 
 st.set_page_config(layout="wide", page_title="BioStart – Hauts-de-France")
 
@@ -32,7 +27,7 @@ html, body, [class*="css"] {
 }
 .main-title {
     font-size: 2.2rem;
-    font-weight: 800;
+    font-weight: 1000;
     color: #1a2e1a;
     line-height: 1.15;
     margin: 0;
@@ -65,6 +60,8 @@ html, body, [class*="css"] {
     background: #d4edba !important;
     border-color: #2d5a1b !important;
 }
+
+/* Bouton reset */
 .stButton > button {
     font-family: 'Montserrat', sans-serif !important;
     font-weight: 700 !important;
@@ -75,11 +72,13 @@ html, body, [class*="css"] {
     border-radius: 10px !important;
     padding: 8px 20px !important;
     transition: all 0.2s ease;
+    cursor: pointer;
 }
 .stButton > button:hover {
     background: #fde8e8 !important;
     border-color: #c0392b !important;
 }
+
 .map-title {
     font-size: 1.6rem;
     font-weight: 800;
@@ -101,7 +100,12 @@ html, body, [class*="css"] {
     letter-spacing: 0.06em;
     text-transform: uppercase;
 }
-.legend-pills { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.legend-pills {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 1.2rem;
+}
 .pill {
     font-size: 0.82rem;
     font-weight: 600;
@@ -112,6 +116,7 @@ html, body, [class*="css"] {
 }
 .pill-active   { background: #e0f2c8; border-color: #2d5a1b; color: #2d5a1b; }
 .pill-inactive { background: #f4f1e8; border-color: #b8d89a; color: #7a9a6a; }
+
 .invite-msg {
     text-align: center;
     padding: 5rem 2rem;
@@ -119,15 +124,6 @@ html, body, [class*="css"] {
     font-size: 1.3rem;
     font-weight: 600;
     font-style: italic;
-}
-.pra-info {
-    font-size: 0.8rem;
-    color: #7a9a6a;
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 8px;
 }
 hr { border: none; border-top: 2px solid #d4e8c2; margin: 1.5rem 0; }
 .streamlit-expanderHeader {
@@ -143,50 +139,7 @@ hr { border: none; border-top: 2px solid #d4e8c2; margin: 1.5rem 0; }
 """, unsafe_allow_html=True)
 
 
-# --- CHARGEMENT PRA ---
-@st.cache_data
-def load_pra():
-    """
-    Télécharge le shapefile PRA depuis data.gouv.fr et le convertit en GeoDataFrame.
-    Source : https://www.data.gouv.fr/datasets/petites-regions-agricoles-1
-    """
-    url_zip = "https://www.data.gouv.fr/api/1/datasets/r/4bf242e5-1497-4161-b124-0c0e5b766a3d"
-    try:
-        r = requests.get(url_zip, timeout=30)
-        r.raise_for_status()
-        z = zipfile.ZipFile(io.BytesIO(r.content))
-        # On cherche le .shp dans le zip
-        shp_files = [f for f in z.namelist() if f.endswith('.shp')]
-        if not shp_files:
-            return None
-        # Extraction dans un buffer mémoire via fiona/geopandas
-        import tempfile, os
-        with tempfile.TemporaryDirectory() as tmpdir:
-            z.extractall(tmpdir)
-            shp_path = os.path.join(tmpdir, shp_files[0])
-            gdf_pra = gpd.read_file(shp_path)
-        # Reprojection en WGS84
-        gdf_pra = gdf_pra.to_crs(epsg=4326)
-        # Filtrage Hauts-de-France : codes département 02, 59, 60, 62, 80
-        # La colonne de code département dans ce fichier est souvent 'DEP' ou dans le code PRA
-        # On tente plusieurs noms de colonnes possibles
-        col_dept = None
-        for c in ['DEP', 'dep', 'INSEE_DEP', 'code_dep', 'DEPT']:
-            if c in gdf_pra.columns:
-                col_dept = c
-                break
-        if col_dept:
-            gdf_pra = gdf_pra[gdf_pra[col_dept].astype(str).str.zfill(2).isin(['02', '59', '60', '62', '80'])].copy()
-        else:
-            # Fallback : filtre spatial par bounding box Hauts-de-France
-            gdf_pra = gdf_pra.cx[1.4:4.3, 49.0:51.2].copy()
-        return gdf_pra
-    except Exception as e:
-        st.warning(f"Impossible de charger les PRA : {e}")
-        return None
-
-
-# --- CHARGEMENT DONNÉES AGRICOLES ---
+# --- CHARGEMENT DONNÉES ---
 @st.cache_data
 def load_data():
     df = pd.read_csv('data.csv', sep=';', encoding='utf-8-sig', dtype=str)
@@ -196,6 +149,7 @@ def load_data():
         'nb_exploit_normalise', 'score_global_elevage', 'score_global_gdculture',
         'Nb_industries_gdculture', 'Nb_industries_elevage', 'Prct_SAU_bio', 'nb_exploit'
     ]
+
     for col in cols_num:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(',', '.')
@@ -214,20 +168,19 @@ def load_data():
     return df, gdf_geo, cols_num
 
 df_csv, gdf_geo, cols_num = load_data()
-gdf_pra = load_pra()
 
 # --- JOINTURES ---
 gdf_final = gdf_geo.merge(df_csv, left_on='code', right_on='canton', how='left')
 for col in cols_num:
     gdf_final[col] = gdf_final[col].fillna(0)
 
-
-# --- RESET ---
+# --- RESET SESSION STATE ---
 def reset_filtres():
     st.session_state["q1"] = None
     st.session_state["q2"] = None
     st.session_state["q3"] = None
 
+# Initialisation session state
 for key in ["q1", "q2", "q3"]:
     if key not in st.session_state:
         st.session_state[key] = None
@@ -251,7 +204,8 @@ except:
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# --- CRITÈRES ---
+
+# --- CRITÈRES + BOUTON RESET ---
 col_titre, col_reset = st.columns([6, 1])
 with col_titre:
     st.markdown('<p class="section-label">🌿 Définissez vos critères</p>', unsafe_allow_html=True)
@@ -259,12 +213,30 @@ with col_reset:
     st.button("🗑️ Effacer les filtres", on_click=reset_filtres)
 
 col1, col2, col3 = st.columns(3)
+
 with col1:
-    type_exploit = st.radio("🌾 Type d'activité", ["Élevage", "Grande culture"], index=None, key="q3")
+    type_exploit = st.radio(
+        "🌾 Type d'activité",
+        ["Élevage", "Grande culture"],
+        index=None,
+        key="q3"
+    )
+
 with col2:
-    entraide = st.radio("🤝 Besoin d'entraide ?", ["Oui", "Non"], index=None, key="q2")
+    entraide = st.radio(
+        "🤝 Besoin d'entraide ?",
+        ["Oui", "Non"],
+        index=None,
+        key="q2"
+    )
+
 with col3:
-    reprise = st.radio("🌱 Terres déjà converties ?", ["Oui", "Non"], index=None, key="q1")
+    reprise = st.radio(
+        "🌱 Terres déjà converties ?",
+        ["Oui", "Non"],
+        index=None,
+        key="q1"
+    )
 
 st.markdown("<hr>", unsafe_allow_html=True)
 
@@ -276,15 +248,18 @@ if type_exploit is None:
 else:
     alpha = 1.0
 
+    # Score de base
     if type_exploit == "Élevage":
         score_base = gdf_final['prct_elevage'].copy().values
     else:
         score_base = gdf_final['prct_gdculture'].copy().values
 
+    # Effet progressif Terres converties
     if reprise == "Oui":
         E_terres = gdf_final['prct_SAU_normalise'].values
         score_base = score_base * (1 + alpha * (E_terres - 0.5))
 
+    # Effet progressif Entraide
     if entraide == "Oui":
         E_entraide = gdf_final['nb_exploit_normalise'].values
         score_base = score_base * (1 + alpha * (E_entraide - 0.5))
@@ -301,15 +276,13 @@ else:
         pills_html += '<span class="pill pill-active">🌱 Terres converties</span>'
     elif reprise == "Non":
         pills_html += '<span class="pill pill-inactive">🌱 Terres non converties</span>'
-    if gdf_pra is not None:
-        pills_html += '<span class="pill pill-active">🗂️ Contours PRA activés</span>'
 
     st.markdown(f"""
     <p class="map-title">Cantons favorables <span class="badge">{type_exploit}</span></p>
     <div class="legend-pills">{pills_html}</div>
     """, unsafe_allow_html=True)
 
-    # Hover selon activité
+    # Hover data selon le type d'activité
     if type_exploit == "Élevage":
         hover_data = {
             "code": True,
@@ -335,7 +308,6 @@ else:
         [1.0,  "#1a9850"]
     ]
 
-    # Carte de base (choropleth cantons)
     fig = px.choropleth_mapbox(
         gdf_final,
         geojson=gdf_final.__geo_interface__,
@@ -346,68 +318,8 @@ else:
         hover_name="nom",
         hover_data=hover_data,
         mapbox_style="carto-positron",
-        opacity=0.75,
-        zoom=7,
-        center={"lat": 49.9, "lon": 2.8}
+        opacity=0.75
     )
-
-    # --- COUCHE PRA : contours + labels ---
-    if gdf_pra is not None:
-        # Détection du nom de la colonne PRA
-        nom_col = None
-        for c in ['NOM_PRA', 'nom_pra', 'NAME_PRA', 'name_pra', 'LIBELLE', 'libelle', 'NOM', 'nom', 'LIB_PRA']:
-            if c in gdf_pra.columns:
-                nom_col = c
-                break
-        if nom_col is None:
-            nom_col = gdf_pra.columns[1]  # fallback : 2e colonne
-
-        # Contours PRA via Scattermapbox (lignes)
-        for _, row in gdf_pra.iterrows():
-            geom = row.geometry
-            nom_pra = str(row[nom_col])
-            # Extraction des coordonnées selon le type de géométrie
-            coords_list = []
-            if geom.geom_type == 'Polygon':
-                coords_list = [list(geom.exterior.coords)]
-            elif geom.geom_type == 'MultiPolygon':
-                coords_list = [list(poly.exterior.coords) for poly in geom.geoms]
-
-            for coords in coords_list:
-                lons = [c[0] for c in coords]
-                lats = [c[1] for c in coords]
-                fig.add_trace(go.Scattermapbox(
-                    lon=lons,
-                    lat=lats,
-                    mode='lines',
-                    line=dict(color='#1a3a6b', width=2),
-                    hoverinfo='skip',
-                    showlegend=False,
-                    name=''
-                ))
-
-        # Labels PRA (centroïde de chaque PRA)
-        pra_lons, pra_lats, pra_noms = [], [], []
-        for _, row in gdf_pra.iterrows():
-            centroid = row.geometry.centroid
-            pra_lons.append(centroid.x)
-            pra_lats.append(centroid.y)
-            pra_noms.append(str(row[nom_col]))
-
-        fig.add_trace(go.Scattermapbox(
-            lon=pra_lons,
-            lat=pra_lats,
-            mode='text',
-            text=pra_noms,
-            textfont=dict(
-                size=11,
-                color='#1a3a6b',
-                family='Montserrat'
-            ),
-            hoverinfo='skip',
-            showlegend=False,
-            name=''
-        ))
 
     fig.update_layout(
         mapbox_zoom=7,
@@ -427,6 +339,7 @@ else:
 
     st.plotly_chart(fig, use_container_width=True, key="carte_principale")
 
+    # Debug
     with st.expander("📋 Voir les données brutes"):
         cols_to_show = [
             'nom', 'code', 'score_final', 'prct_SAU_normalise', 'nb_exploit_normalise',
