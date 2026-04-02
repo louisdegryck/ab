@@ -147,7 +147,7 @@ def load_data():
     cols_num = [
         'prct_SAU_normalise', 'prct_gdculture', 'prct_elevage',
         'nb_exploit_normalise', 'score_global_elevage', 'score_global_gdculture',
-        'Nb_industries_gdculture', 'Nb_industries_elevage', 'Prct_SAU_bio', 'nb_exploit'
+        'Nb_industries_gdculture', 'Nb_industries_elevage', '% de SAU en bio', 'Nb d'exploitations'
     ]
 
     for col in cols_num:
