@@ -80,8 +80,7 @@ gdf_final['score_final'] = np.clip(couleur_base, 0, 1)
 st.markdown(f"### 🗺️ Cantons favorables — {type_exploit}")
 
 custom_scale = [
-    [0.0, "white"],
-    [0.5, "yellow"],
+    [0.0, "red"],
     [1.0, "green"]
 ]
 
