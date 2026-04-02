@@ -80,8 +80,11 @@ gdf_final['score_final'] = np.clip(couleur_base, 0, 1)
 st.markdown(f"### 🗺️ Cantons favorables — {type_exploit}")
 
 custom_scale = [
-    [0.0, "red"],
-    [1.0, "green"]
+    [0.0, "#d73027"],   # rouge
+    [0.25, "#f46d43"],  # orange rouge
+    [0.5, "#fee08b"],   # jaune
+    [0.75, "#a6d96a"],  # vert clair
+    [1.0, "#1a9850"]    # vert foncé
 ]
 
 fig = px.choropleth_mapbox(
