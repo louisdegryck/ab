@@ -27,7 +27,7 @@ html, body, [class*="css"] {
 }
 .main-title {
     font-size: 2.2rem;
-    font-weight: 800;
+    font-weight: 1000;
     color: #1a2e1a;
     line-height: 1.15;
     margin: 0;
