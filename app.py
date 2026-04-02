@@ -57,24 +57,26 @@ with col3:
 
 # --- CALCULS ---
 
-# 1. Score de base et colonne couleur selon le type d'activité
+# 1. Score de base selon le type d'activité
 if type_exploit == "Élevage":
-    couleur_base = gdf_final['prct_elevage'].copy()
+    score = gdf_final['prct_elevage'].copy()
 else:
-    couleur_base = gdf_final['prct_gdculture'].copy()
+    score = gdf_final['prct_gdculture'].copy()
 
-# 2. Amplification "Terres converties" : booste les zones où prct_SAU_normalise > 0.05
+# Paramètres d'intensité
+alpha_entraide = 0.4
+alpha_terres = 0.4
+
+# 2. Effet "Terres déjà converties" (progressif)
 if reprise == "Oui":
-    masque_terres = gdf_final['prct_SAU_normalise'] > 0.05
-    couleur_base = np.where(masque_terres, couleur_base * 1.5, couleur_base)
+    score = score * (1 + alpha_terres * (gdf_final['prct_SAU_normalise'] - 0.5))
 
-# 3. Amplification "Entraide" : booste les zones où nb_exploit_normalise > 0.5
+# 3. Effet "Entraide" (progressif)
 if entraide == "Oui":
-    masque_entraide = gdf_final['nb_exploit_normalise'] > 0.5
-    couleur_base = np.where(masque_entraide, couleur_base * 1.5, couleur_base)
+    score = score * (1 + alpha_entraide * (gdf_final['nb_exploit_normalise'] - 0.5))
 
-# Plafonnement entre 0 et 1
-gdf_final['score_final'] = np.clip(couleur_base, 0, 1)
+# 4. Nettoyage / sécurisation
+gdf_final['score_final'] = np.clip(score, 0, 1)
 
 # --- CARTE ---
 st.markdown(f"### 🗺️ Cantons favorables — {type_exploit}")
