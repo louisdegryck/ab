@@ -216,7 +216,7 @@ col1, col2, col3 = st.columns(3)
 
 with col1:
     type_exploit = st.radio(
-        "🌾 Type d'activité",
+        "Sur quel type d'exploitation souhaitez-vous vous installer ?",
         ["Élevage", "Grande culture"],
         index=None,
         key="q3"
@@ -224,7 +224,7 @@ with col1:
 
 with col2:
     entraide = st.radio(
-        "🤝 Besoin d'entraide ?",
+        "Souhaitez-vous travailler en entraide ?",
         ["Oui", "Non"],
         index=None,
         key="q2"
@@ -232,7 +232,7 @@ with col2:
 
 with col3:
     reprise = st.radio(
-        "🌱 Terres déjà converties ?",
+        "Souhaitez-vous vous installer sur des terres déjà converties en bio ?",
         ["Oui", "Non"],
         index=None,
         key="q1"
