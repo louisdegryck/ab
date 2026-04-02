@@ -47,13 +47,13 @@ st.subheader("🌱 Vos préférences")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    reprise = st.radio("Terres déjà converties ?", ["Oui", "Non"], horizontal=True, key="q1")
+    type_exploit = st.radio("Type d'activité ?", ["Élevage", "Grande culture"], horizontal=True, key="q3")
 
 with col2:
     entraide = st.radio("Besoin d'entraide ?", ["Oui", "Non"], horizontal=True, key="q2")
 
 with col3:
-    type_exploit = st.radio("Type d'activité ?", ["Élevage", "Grande culture"], horizontal=True, key="q3")
+    reprise = st.radio("Terres déjà converties ?", ["Oui", "Non"], horizontal=True, key="q1")
 
 # --- CALCULS ---
 
