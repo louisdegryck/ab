@@ -9,35 +9,27 @@ st.title("🚜 Outil d'aide à l'installation pour les exploitations en agricult
 
 @st.cache_data
 def load_data():
-    # 1. Chargement du CSV Unique
-    # Assurez-vous que le fichier s'appelle bien data.csv
     df = pd.read_csv('data.csv', sep=';', encoding='utf-8-sig', dtype=str)
 
-    # Liste des colonnes numériques à traiter
     cols_num = [
-        'score_nb_exploit', 'prct_SAU_bio', 'prct_gdculture', 
-        'prct_elevage', 'score_global_elevage', 'score_global_gdculture'
+        'prct_SAU_normalise', 'prct_gdculture',
+        'prct_elevage', 'nb_exploit_normalise',
+        'score_global_elevage', 'score_global_gdculture'
     ]
 
-    # Remplacement des virgules par des points et conversion en numérique
     for col in cols_num:
         if col in df.columns:
             df[col] = df[col].astype(str).str.replace(',', '.')
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-    # Reconstruction du code INSEE canton sur 5 caractères
-    # Ex: '5919' -> '59' (département) + '019' (canton formaté sur 3 chiffres) -> '59019'
     df['canton_raw'] = df['Étiquettes de lignes'].astype(str).str.split('.').str[0].str.strip()
-    df['dept'] = df['canton_raw'].str[:-2] # Récupère tout sauf les 2 derniers chiffres
-    df['cant'] = df['canton_raw'].str[-2:].str.zfill(3) # Transforme les 2 derniers chiffres en 3 chiffres (ex: "14" -> "014")
-    df['canton'] = (df['dept'] + df['cant']).str.zfill(5) # Rajoute le zéro devant si besoin (ex: "2014" -> "02014")
+    df['dept'] = df['canton_raw'].str[:-2]
+    df['cant'] = df['canton_raw'].str[-2:].str.zfill(3)
+    df['canton'] = (df['dept'] + df['cant']).str.zfill(5)
 
-    # 2. Chargement Géo
     url_geojson = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/cantons-version-simplifiee.geojson"
     gdf_geo = gpd.read_file(url_geojson)
     gdf_geo['code'] = gdf_geo['code'].astype(str).str.strip()
-    
-    # Filtrer uniquement sur les Hauts-de-France
     gdf_geo = gdf_geo[gdf_geo['code'].str[:2].isin(['02', '59', '60', '62', '80'])].copy()
 
     return df, gdf_geo, cols_num
@@ -47,8 +39,6 @@ df_csv, gdf_geo, cols_num = load_data()
 
 # --- JOINTURES ---
 gdf_final = gdf_geo.merge(df_csv, left_on='code', right_on='canton', how='left')
-
-# Remplir les valeurs manquantes (cantons sans données) par 0
 for col in cols_num:
     gdf_final[col] = gdf_final[col].fillna(0)
 
@@ -67,33 +57,28 @@ with col3:
 
 # --- CALCULS ---
 
-# 1. Choix du score de base selon le type d'activité
+# 1. Score de base et colonne couleur selon le type d'activité
 if type_exploit == "Élevage":
-    score_temp = gdf_final['score_global_elevage'].copy()
+    couleur_base = gdf_final['prct_elevage'].copy()
 else:
-    score_temp = gdf_final['score_global_gdculture'].copy()
+    couleur_base = gdf_final['prct_gdculture'].copy()
 
-# 2. Règle : Terres déjà converties ?
-# "si oui : score_global... * 0.5 si prct_SAU_bio > 0.05"
+# 2. Amplification "Terres converties" : booste les zones où prct_SAU_normalise > 0.05
 if reprise == "Oui":
-    masque_terres = gdf_final['prct_SAU_bio'] > 0.05
-    # np.where(condition, valeur_si_vrai, valeur_si_faux)
-    score_temp = np.where(masque_terres, score_temp * 0.5, score_temp)
+    masque_terres = gdf_final['prct_SAU_normalise'] > 0.05
+    couleur_base = np.where(masque_terres, couleur_base * 1.5, couleur_base)
 
-# 3. Règle : Besoin d'entraide ?
-# "si oui : résultat précédent * 0,5 si score_nb_exploit < 0,5"
+# 3. Amplification "Entraide" : booste les zones où nb_exploit_normalise > 0.5
 if entraide == "Oui":
-    masque_entraide = gdf_final['score_nb_exploit'] < 0.5
-    score_temp = np.where(masque_entraide, score_temp * 0.5, score_temp)
+    masque_entraide = gdf_final['nb_exploit_normalise'] > 0.5
+    couleur_base = np.where(masque_entraide, couleur_base * 1.5, couleur_base)
 
-# On plafonne à 1 et on empêche de descendre sous 0 pour l'affichage
-gdf_final['score_final'] = np.clip(score_temp, 0, 1)
-
+# Plafonnement entre 0 et 1
+gdf_final['score_final'] = np.clip(couleur_base, 0, 1)
 
 # --- CARTE ---
 st.markdown(f"### 🗺️ Cantons favorables — {type_exploit}")
 
-# Échelle de couleur personnalisée
 custom_scale = [
     [0.0, "white"],
     [0.5, "yellow"],
@@ -110,8 +95,10 @@ fig = px.choropleth_mapbox(
     hover_name="nom",
     hover_data={
         "code": True,
-        "prct_SAU_bio": ":.2f",
-        "score_nb_exploit": ":.2f",
+        "prct_SAU_normalise": ":.2f",
+        "nb_exploit_normalise": ":.2f",
+        "prct_elevage": ":.2f",
+        "prct_gdculture": ":.2f",
         "score_global_elevage": ":.2f",
         "score_global_gdculture": ":.2f",
         "score_final": ":.2f"
@@ -131,6 +118,6 @@ st.plotly_chart(fig, use_container_width=True, key="carte_principale")
 
 # --- DEBUG ---
 with st.expander("Voir les données brutes"):
-    cols_to_show = ['nom', 'code', 'score_final', 'prct_SAU_bio', 'score_nb_exploit', 
-                    'score_global_elevage', 'score_global_gdculture']
+    cols_to_show = ['nom', 'code', 'score_final', 'prct_SAU_normalise', 'nb_exploit_normalise',
+                    'prct_elevage', 'prct_gdculture', 'score_global_elevage', 'score_global_gdculture']
     st.dataframe(gdf_final[cols_to_show].head(10))
