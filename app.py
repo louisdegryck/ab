@@ -15,12 +15,8 @@ html, body, [class*="css"] {
     background-color: #f4f1e8;
     color: #1a2e1a;
 }
+.stApp { background-color: #f4f1e8; }
 
-.stApp {
-    background-color: #f4f1e8;
-}
-
-/* Header */
 .main-subtitle {
     font-size: 0.85rem;
     color: #4a7a2e;
@@ -29,7 +25,6 @@ html, body, [class*="css"] {
     letter-spacing: 0.12em;
     text-transform: uppercase;
 }
-
 .main-title {
     font-size: 2.2rem;
     font-weight: 800;
@@ -37,8 +32,6 @@ html, body, [class*="css"] {
     line-height: 1.15;
     margin: 0;
 }
-
-/* Section critères */
 .section-label {
     font-size: 1.1rem;
     font-weight: 700;
@@ -46,8 +39,6 @@ html, body, [class*="css"] {
     margin-bottom: 1.2rem;
     letter-spacing: 0.03em;
 }
-
-/* Labels radio */
 .stRadio > label {
     font-family: 'Montserrat', sans-serif !important;
     font-weight: 700 !important;
@@ -55,7 +46,6 @@ html, body, [class*="css"] {
     color: #1a2e1a !important;
     margin-bottom: 0.6rem !important;
 }
-
 .stRadio > div > label {
     background: #eef7e4 !important;
     border: 2px solid #b8d89a !important;
@@ -66,13 +56,29 @@ html, body, [class*="css"] {
     color: #2d5a1b !important;
     transition: all 0.2s ease;
 }
-
 .stRadio > div > label:hover {
     background: #d4edba !important;
     border-color: #2d5a1b !important;
 }
 
-/* Titre carte */
+/* Bouton reset */
+.stButton > button {
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 0.9rem !important;
+    color: #c0392b !important;
+    background: #fff5f5 !important;
+    border: 2px solid #e74c3c !important;
+    border-radius: 10px !important;
+    padding: 8px 20px !important;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.stButton > button:hover {
+    background: #fde8e8 !important;
+    border-color: #c0392b !important;
+}
+
 .map-title {
     font-size: 1.6rem;
     font-weight: 800;
@@ -81,8 +87,6 @@ html, body, [class*="css"] {
     padding-bottom: 0.6rem;
     border-bottom: 2px solid #b8d89a;
 }
-
-/* Badge */
 .badge {
     display: inline-block;
     background: #2d5a1b;
@@ -96,8 +100,6 @@ html, body, [class*="css"] {
     letter-spacing: 0.06em;
     text-transform: uppercase;
 }
-
-/* Pills */
 .legend-pills {
     display: flex;
     gap: 10px;
@@ -112,18 +114,9 @@ html, body, [class*="css"] {
     border: 2px solid;
     font-family: 'Montserrat', sans-serif;
 }
-.pill-active {
-    background: #e0f2c8;
-    border-color: #2d5a1b;
-    color: #2d5a1b;
-}
-.pill-inactive {
-    background: #f4f1e8;
-    border-color: #b8d89a;
-    color: #7a9a6a;
-}
+.pill-active   { background: #e0f2c8; border-color: #2d5a1b; color: #2d5a1b; }
+.pill-inactive { background: #f4f1e8; border-color: #b8d89a; color: #7a9a6a; }
 
-/* Message invitation */
 .invite-msg {
     text-align: center;
     padding: 5rem 2rem;
@@ -132,21 +125,13 @@ html, body, [class*="css"] {
     font-weight: 600;
     font-style: italic;
 }
-
-hr {
-    border: none;
-    border-top: 2px solid #d4e8c2;
-    margin: 1.5rem 0;
-}
-
-/* Expander */
+hr { border: none; border-top: 2px solid #d4e8c2; margin: 1.5rem 0; }
 .streamlit-expanderHeader {
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.95rem !important;
     font-weight: 600 !important;
     color: #2d5a1b !important;
 }
-
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #f4f1e8; }
 ::-webkit-scrollbar-thumb { background: #b8d89a; border-radius: 3px; }
@@ -189,6 +174,17 @@ gdf_final = gdf_geo.merge(df_csv, left_on='code', right_on='canton', how='left')
 for col in cols_num:
     gdf_final[col] = gdf_final[col].fillna(0)
 
+# --- RESET SESSION STATE ---
+def reset_filtres():
+    st.session_state["q1"] = None
+    st.session_state["q2"] = None
+    st.session_state["q3"] = None
+
+# Initialisation session state
+for key in ["q1", "q2", "q3"]:
+    if key not in st.session_state:
+        st.session_state[key] = None
+
 
 # --- HEADER ---
 try:
@@ -209,8 +205,12 @@ except:
 st.markdown("<hr>", unsafe_allow_html=True)
 
 
-# --- CRITÈRES ---
-st.markdown('<p class="section-label">🌿 Définissez vos critères</p>', unsafe_allow_html=True)
+# --- CRITÈRES + BOUTON RESET ---
+col_titre, col_reset = st.columns([6, 1])
+with col_titre:
+    st.markdown('<p class="section-label">🌿 Définissez vos critères</p>', unsafe_allow_html=True)
+with col_reset:
+    st.button("🗑️ Effacer les filtres", on_click=reset_filtres)
 
 col1, col2, col3 = st.columns(3)
 
@@ -282,6 +282,24 @@ else:
     <div class="legend-pills">{pills_html}</div>
     """, unsafe_allow_html=True)
 
+    # Hover data selon le type d'activité
+    if type_exploit == "Élevage":
+        hover_data = {
+            "code": True,
+            "Nb_industries_elevage": ":.0f",
+            "Prct_SAU_bio": ":.2f",
+            "nb_exploit": ":.0f",
+            "score_final": ":.2f"
+        }
+    else:
+        hover_data = {
+            "code": True,
+            "Nb_industries_gdculture": ":.0f",
+            "Prct_SAU_bio": ":.2f",
+            "nb_exploit": ":.0f",
+            "score_final": ":.2f"
+        }
+
     custom_scale = [
         [0.0,  "#d73027"],
         [0.25, "#f46d43"],
@@ -298,20 +316,7 @@ else:
         color_continuous_scale=custom_scale,
         range_color=[0, 1],
         hover_name="nom",
-        hover_data={
-            "code": True,
-            "prct_SAU_normalise": ":.2f",
-            "nb_exploit_normalise": ":.2f",
-            "prct_elevage": ":.2f",
-            "prct_gdculture": ":.2f",
-            "score_global_elevage": ":.2f",
-            "score_global_gdculture": ":.2f",
-            "Nb_industries_gdculture": ":.0f",
-            "Nb_industries_elevage": ":.0f",
-            "Prct_SAU_bio": ":.2f",
-            "nb_exploit": ":.0f",
-            "score_final": ":.2f"
-        },
+        hover_data=hover_data,
         mapbox_style="carto-positron",
         opacity=0.75
     )
@@ -328,7 +333,7 @@ else:
             thickness=16,
             len=0.65,
             tickfont=dict(family="Montserrat", size=12, color="#1a2e1a"),
-            title_font=dict(family="Montserrat", size=13, color="#1a2e1a", weight="bold"),
+            title_font=dict(family="Montserrat", size=13, color="#1a2e1a"),
         )
     )
 
