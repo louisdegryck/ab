@@ -4,3 +4,4 @@ streamlit-folium
 pandas
 geopandas
 requests
+plotly
